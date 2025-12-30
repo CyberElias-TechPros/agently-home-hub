@@ -35,25 +35,25 @@ export default function Home() {
             </p>
 
             {/* Search Bar */}
-            <div className="bg-card p-4 rounded-lg shadow-xl animate-scale-in">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-2 flex items-center gap-2 px-3 py-2 bg-background rounded-md">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
+            <div className="bg-card p-3 sm:p-4 rounded-lg shadow-xl animate-scale-in max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="sm:col-span-2 lg:col-span-2 flex items-center gap-2 px-3 py-2 bg-background rounded-md">
+                  <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <Input
                     placeholder="City, neighborhood, or address"
-                    className="border-0 p-0 h-auto focus-visible:ring-0"
+                    className="border-0 p-0 h-auto focus-visible:ring-0 text-sm sm:text-base"
                   />
                 </div>
                 <div className="flex items-center gap-2 px-3 py-2 bg-background rounded-md">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                  <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
                   <Input
                     type="date"
                     placeholder="Move-in date"
-                    className="border-0 p-0 h-auto focus-visible:ring-0"
+                    className="border-0 p-0 h-auto focus-visible:ring-0 text-sm sm:text-base"
                   />
                 </div>
-                <Link to="/properties" className="w-full">
-                  <Button className="w-full h-full bg-gradient-hero hover:opacity-90">
+                <Link to="/properties" className="w-full sm:col-span-3 lg:col-span-1">
+                  <Button className="w-full h-full bg-gradient-hero hover:opacity-90 min-h-[44px] text-sm sm:text-base">
                     <Search className="mr-2 h-4 w-4" />
                     Search
                   </Button>
@@ -156,23 +156,23 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16">
+      <section className="py-12 sm:py-16">
         <div className="container mx-auto px-4">
-          <div className="bg-gradient-hero rounded-2xl p-12 text-center text-primary-foreground">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <div className="bg-gradient-hero rounded-2xl p-6 sm:p-8 lg:p-12 text-center text-primary-foreground">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">
               Ready to Find Your Next Home?
             </h2>
-            <p className="text-lg mb-8 opacity-90">
+            <p className="text-base sm:text-lg mb-6 sm:mb-8 opacity-90 max-w-2xl mx-auto">
               Join thousands of satisfied tenants and start your journey today
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="min-w-[200px]">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-md sm:max-w-none mx-auto">
+              <Link to="/auth" className="w-full sm:w-auto">
+                <Button size="lg" variant="secondary" className="w-full min-w-[200px] h-12 text-base">
                   Get Started
                 </Button>
               </Link>
-              <Link to="/properties">
-                <Button size="lg" variant="outline" className="min-w-[200px] bg-transparent text-primary-foreground border-primary-foreground hover:bg-primary-foreground hover:text-primary">
+              <Link to="/properties" className="w-full sm:w-auto">
+                <Button size="lg" variant="outline" className="w-full min-w-[200px] h-12 bg-transparent text-primary-foreground border-primary-foreground hover:bg-primary-foreground hover:text-primary text-base">
                   Browse Properties
                 </Button>
               </Link>

@@ -1,26 +1,50 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal, Loader2 } from 'lucide-react';
 import PropertyCard from '@/components/PropertyCard';
-import { mockProperties } from '@/lib/mockData';
+import { apiService } from '@/lib/api';
 import { Property } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Properties() {
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [propertyType, setPropertyType] = useState<string>('all');
   const [priceRange, setPriceRange] = useState([0, 5000]);
   const [showFilters, setShowFilters] = useState(false);
+  const { toast } = useToast();
 
-  const filteredProperties = mockProperties.filter((property: Property) => {
+  useEffect(() => {
+    loadProperties();
+  }, []);
+
+  const loadProperties = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getProperties();
+      setProperties(data);
+    } catch (error) {
+      toast({
+        title: "Error loading properties",
+        description: "Failed to load properties. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredProperties = properties.filter((property: Property) => {
     const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         property.location.city.toLowerCase().includes(searchTerm.toLowerCase());
+                          property.location.city.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = propertyType === 'all' || property.type === propertyType;
     const matchesPrice = property.price >= priceRange[0] && property.price <= priceRange[1];
-    
+
     return matchesSearch && matchesType && matchesPrice;
   });
 
@@ -31,7 +55,7 @@ export default function Properties() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Browse Properties</h1>
           <p className="text-muted-foreground">
-            Showing {filteredProperties.length} of {mockProperties.length} properties
+            {loading ? 'Loading properties...' : `Showing ${filteredProperties.length} of ${properties.length} properties`}
           </p>
         </div>
 
@@ -112,7 +136,11 @@ export default function Properties() {
         </div>
 
         {/* Properties Grid */}
-        {filteredProperties.length > 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : filteredProperties.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProperties.map((property) => (
               <PropertyCard key={property.id} property={property} />

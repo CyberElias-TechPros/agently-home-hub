@@ -1,22 +1,73 @@
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/use-auth';
+
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+const registerSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.enum(['tenant', 'landlord', 'manager'], {
+    required_error: 'Please select a role',
+  }),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
+type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function Auth() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+  const { login, register, isLoading } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    // Simulate auth
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+  const loginForm = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const registerForm = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      role: 'tenant',
+    },
+  });
+
+  const onLogin = async (data: LoginForm) => {
+    try {
+      await login(data);
+      navigate('/dashboard');
+    } catch (error) {
+      // Error is handled by the auth hook
+    }
+  };
+
+  const onRegister = async (data: RegisterForm) => {
+    try {
+      await register(data);
+      navigate('/dashboard');
+    } catch (error) {
+      // Error is handled by the auth hook
+    }
   };
 
   return (
@@ -35,22 +86,26 @@ export default function Auth() {
             <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'signin' | 'signup')} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                   <div>
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="you@example.com"
-                      required
+                      {...loginForm.register('email')}
+                      className={loginForm.formState.errors.email ? 'border-red-500' : ''}
                     />
+                    {loginForm.formState.errors.email && (
+                      <p className="text-sm text-red-500 mt-1">{loginForm.formState.errors.email.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="password">Password</Label>
@@ -58,8 +113,12 @@ export default function Auth() {
                       id="password"
                       type="password"
                       placeholder="••••••••"
-                      required
+                      {...loginForm.register('password')}
+                      className={loginForm.formState.errors.password ? 'border-red-500' : ''}
                     />
+                    {loginForm.formState.errors.password && (
+                      <p className="text-sm text-red-500 mt-1">{loginForm.formState.errors.password.message}</p>
+                    )}
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Signing in...' : 'Sign In'}
@@ -71,15 +130,19 @@ export default function Auth() {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
                   <div>
                     <Label htmlFor="name">Full Name</Label>
                     <Input
                       id="name"
                       type="text"
                       placeholder="John Doe"
-                      required
+                      {...registerForm.register('name')}
+                      className={registerForm.formState.errors.name ? 'border-red-500' : ''}
                     />
+                    {registerForm.formState.errors.name && (
+                      <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.name.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="signup-email">Email</Label>
@@ -87,8 +150,12 @@ export default function Auth() {
                       id="signup-email"
                       type="email"
                       placeholder="you@example.com"
-                      required
+                      {...registerForm.register('email')}
+                      className={registerForm.formState.errors.email ? 'border-red-500' : ''}
                     />
+                    {registerForm.formState.errors.email && (
+                      <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.email.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="signup-password">Password</Label>
@@ -96,20 +163,31 @@ export default function Auth() {
                       id="signup-password"
                       type="password"
                       placeholder="••••••••"
-                      required
+                      {...registerForm.register('password')}
+                      className={registerForm.formState.errors.password ? 'border-red-500' : ''}
                     />
+                    {registerForm.formState.errors.password && (
+                      <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.password.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="role">I am a...</Label>
-                    <select
-                      id="role"
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background"
-                      required
+                    <Select
+                      value={registerForm.watch('role')}
+                      onValueChange={(value) => registerForm.setValue('role', value as 'tenant' | 'landlord' | 'manager')}
                     >
-                      <option value="tenant">Tenant</option>
-                      <option value="landlord">Landlord</option>
-                      <option value="manager">Property Manager</option>
-                    </select>
+                      <SelectTrigger className={registerForm.formState.errors.role ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tenant">Tenant</SelectItem>
+                        <SelectItem value="landlord">Landlord</SelectItem>
+                        <SelectItem value="manager">Property Manager</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {registerForm.formState.errors.role && (
+                      <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.role.message}</p>
+                    )}
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Creating account...' : 'Create Account'}

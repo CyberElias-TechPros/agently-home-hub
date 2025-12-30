@@ -1,14 +1,95 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Bed, Bath, Square, Calendar, Heart, Share2, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { MapPin, Bed, Bath, Square, Calendar, Heart, Share2, MessageSquare, CheckCircle2, Phone, Mail } from 'lucide-react';
 import { mockProperties } from '@/lib/mockData';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PropertyDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [showBookingDialog, setShowBookingDialog] = useState(false);
+  const [showContactDialog, setShowContactDialog] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const property = mockProperties.find(p => p.id === id);
+
+  const handleRequestBooking = async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to request a booking.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      toast({
+        title: "Booking Request Sent",
+        description: "Your booking request has been sent to the landlord. You'll be notified of their response.",
+      });
+      setShowBookingDialog(false);
+      setBookingMessage('');
+    } catch (error) {
+      toast({
+        title: "Booking Failed",
+        description: "There was an error sending your booking request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleContactLandlord = async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to contact the landlord.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      toast({
+        title: "Message Sent",
+        description: "Your message has been sent to the landlord. They'll respond soon.",
+      });
+      setShowContactDialog(false);
+      setContactMessage('');
+    } catch (error) {
+      toast({
+        title: "Message Failed",
+        description: "There was an error sending your message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!property) {
     return (
@@ -144,13 +225,87 @@ export default function PropertyDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button className="w-full" size="lg">
-                  Request Booking
-                </Button>
-                <Button className="w-full" variant="outline" size="lg">
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Contact Landlord
-                </Button>
+                <Dialog open={showBookingDialog} onOpenChange={setShowBookingDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full" size="lg">
+                      Request Booking
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Request Booking for {property.title}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="booking-message">Message to Landlord (Optional)</Label>
+                        <Textarea
+                          id="booking-message"
+                          placeholder="Tell the landlord why you're interested in this property..."
+                          value={bookingMessage}
+                          onChange={(e) => setBookingMessage(e.target.value)}
+                          rows={4}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleRequestBooking} disabled={isSubmitting} className="flex-1">
+                          {isSubmitting ? 'Sending...' : 'Send Request'}
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowBookingDialog(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full" variant="outline" size="lg">
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Contact Landlord
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Contact Landlord</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-muted rounded-lg">
+                        <h4 className="font-semibold mb-2">Landlord Contact Information</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span>landlord@agently.com</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            <span>(555) 123-4567</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="contact-message">Your Message</Label>
+                        <Textarea
+                          id="contact-message"
+                          placeholder="Ask questions about the property, availability, or anything else..."
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
+                          rows={4}
+                          required
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleContactLandlord} disabled={isSubmitting || !contactMessage.trim()} className="flex-1">
+                          {isSubmitting ? 'Sending...' : 'Send Message'}
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowContactDialog(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
                 <Separator />
                 <div className="text-sm text-muted-foreground space-y-2">
                   <div className="flex justify-between">
