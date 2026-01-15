@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: agently-postgres
+    environment:
+      POSTGRES_DB: agently_home_hub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/db/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - agently-network
+
+  # Backend API
+  backend:
+    build: .
+    container_name: agently-backend
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: agently_home_hub
+      JWT_SECRET: your-super-secret-jwt-key
+      EMAIL_SERVICE: gmail
+      EMAIL_USER: your-email@gmail.com
+      EMAIL_PASS: your-app-password
+      USE_DATABASE: true
+    depends_on:
+      - postgres
+    networks:
+      - agently-network
+    volumes:
+      - ./server/uploads:/app/server/uploads
+
+  # Frontend (for development)
+  frontend:
+    build:
+      context: .
+      target: frontend-builder
+    container_name: agently-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3002
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    depends_on:
+      - backend
+    networks:
+      - agently-network
+
+volumes:
+  postgres_data:
+
+networks:
+  agently-network:
+    driver: bridge

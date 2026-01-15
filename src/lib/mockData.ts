@@ -22,7 +22,8 @@ export const mockProperties: Property[] = [
     status: 'available',
     landlordId: '1',
     availableFrom: '2024-12-01',
-    featured: true
+    featured: true,
+    priceChange: 8.5
   },
   {
     id: '2',
@@ -45,7 +46,8 @@ export const mockProperties: Property[] = [
     status: 'available',
     landlordId: '2',
     availableFrom: '2024-11-20',
-    featured: true
+    featured: true,
+    priceChange: 12.3
   },
   {
     id: '3',
@@ -67,7 +69,8 @@ export const mockProperties: Property[] = [
     amenities: ['Laundry', 'Bike storage', 'Study room', 'High-speed internet'],
     status: 'available',
     landlordId: '1',
-    availableFrom: '2024-11-15'
+    availableFrom: '2024-11-15',
+    priceChange: 5.2
   },
   {
     id: '4',
@@ -89,7 +92,8 @@ export const mockProperties: Property[] = [
     amenities: ['Parking', 'Yard', 'Pet-friendly', 'Storage', 'Central AC'],
     status: 'available',
     landlordId: '3',
-    availableFrom: '2024-12-15'
+    availableFrom: '2024-12-15',
+    priceChange: 9.8
   }
 ];
 
@@ -1670,7 +1674,7 @@ export const mockInspectionChecklists: InspectionChecklist[] = [
     inspectorId: 'inspector1',
     scheduledDate: '2024-11-15T10:00:00Z',
     completedDate: '2024-11-15T12:30:00Z',
-    status: 'passed',
+    status: 'completed',
     overallCondition: 'good',
     notes: 'Property in good condition. Minor plumbing issue noted and scheduled for repair.',
     photos: ['/inspections/annual_2024_01.jpg', '/inspections/annual_2024_02.jpg']
@@ -2514,7 +2518,7 @@ export const mockTestSuites: TestSuite[] = [
     description: 'Automated security testing and vulnerability assessment',
     type: 'security',
     category: 'infrastructure',
-    status: 'completed',
+    status: 'passed',
     totalTests: 78,
     passedTests: 65,
     failedTests: 13,

@@ -57,6 +57,11 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        violet: {
+          DEFAULT: "hsl(var(--violet))",
+          foreground: "hsl(var(--violet-foreground))",
+          hover: "hsl(var(--violet-hover))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -106,6 +111,7 @@ export default {
         "gradient-hero": "var(--gradient-hero)",
         "gradient-accent": "var(--gradient-accent)",
         "gradient-subtle": "var(--gradient-subtle)",
+        "gradient-violet": "var(--gradient-violet)",
       },
       boxShadow: {
         sm: "var(--shadow-sm)",

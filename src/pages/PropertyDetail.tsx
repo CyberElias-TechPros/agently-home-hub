@@ -11,6 +11,7 @@ import { MapPin, Bed, Bath, Square, Calendar, Heart, Share2, MessageSquare, Chec
 import { mockProperties } from '@/lib/mockData';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import AdContainer from '@/components/AdContainer';
 
 export default function PropertyDetail() {
   const { id } = useParams();
@@ -105,6 +106,8 @@ export default function PropertyDetail() {
   return (
     <div className="min-h-screen py-8 pb-20 md:pb-8">
       <div className="container mx-auto px-4">
+        <AdContainer pageType="property-detail" position="top" className="mb-8" />
+        
         {/* Image Gallery */}
         <div className="mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl overflow-hidden">
@@ -322,6 +325,8 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+      
+      <AdContainer pageType="property-detail" position="bottom" />
     </div>
   );
 }

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Agently Home Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .offline-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: #f3f4f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .offline-icon::before {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #6b7280;
+            border-radius: 4px;
+        }
+        
+        .offline-icon::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        h1 {
+            color: #1f2937;
+            font-size: 24px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        p {
+            color: #6b7280;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        
+        .retry-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-bottom: 16px;
+        }
+        
+        .retry-btn:hover {
+            background: #2563eb;
+        }
+        
+        .retry-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .offline-features {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+        
+        .offline-features h3 {
+            color: #1f2937;
+            font-size: 18px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        .feature-list {
+            list-style: none;
+            text-align: left;
+        }
+        
+        .feature-list li {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 8px;
+            padding-left: 24px;
+            position: relative;
+        }
+        
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .connection-status {
+            margin-top: 16px;
+            padding: 8px 16px;
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            color: #92400e;
+            font-size: 14px;
+        }
+        
+        .connection-status.online {
+            background: #d1fae5;
+            border-color: #10b981;
+            color: #065f46;
+        }
+        
+        @media (max-width: 480px) {
+            .offline-container {
+                padding: 24px;
+                margin: 20px;
+            }
+            
+            h1 {
+                font-size: 20px;
+            }
+            
+            p {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon"></div>
+        <h1>You're Offline</h1>
+        <p>It looks like you've lost your internet connection. Some features may not be available until you're back online.</p>
+        
+        <button class="retry-btn" onclick="retryConnection()">
+            Try Again
+        </button>
+        
+        <div id="connection-status" class="connection-status">
+            Checking connection...
+        </div>
+        
+        <div class="offline-features">
+            <h3>Available Offline</h3>
+            <ul class="feature-list">
+                <li>View previously loaded properties</li>
+                <li>Access saved searches</li>
+                <li>Browse cached content</li>
+                <li>Use basic app navigation</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let retryCount = 0;
+        const maxRetries = 5;
+        
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connection-status');
+            const isOnline = navigator.onLine;
+            
+            if (isOnline) {
+                statusElement.textContent = 'Connection restored! Redirecting...';
+                statusElement.className = 'connection-status online';
+                
+                // Test if we can actually reach the server
+                testConnection();
+            } else {
+                statusElement.textContent = 'No internet connection';
+                statusElement.className = 'connection-status';
+            }
+        }
+        
+        function testConnection() {
+            fetch('/', { 
+                method: 'HEAD',
+                cache: 'no-cache'
+            })
+            .then(() => {
+                // Connection is working, redirect to home
+                window.location.href = '/';
+            })
+            .catch(() => {
+                // Still no connection
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = 'Connection test failed';
+                statusElement.className = 'connection-status';
+            });
+        }
+        
+        function retryConnection() {
+            if (retryCount >= maxRetries) {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = `Please check your internet connection and try again later.`;
+                return;
+            }
+            
+            retryCount++;
+            const statusElement = document.getElementById('connection-status');
+            statusElement.textContent = `Attempting to reconnect... (${retryCount}/${maxRetries})`;
+            
+            updateConnectionStatus();
+        }
+        
+        // Listen for connection changes
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Initial status check
+        updateConnectionStatus();
+        
+        // Auto-retry every 10 seconds
+        setInterval(() => {
+            if (!navigator.onLine) {
+                retryConnection();
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 export type UserRole = 'tenant' | 'landlord' | 'manager';
 
 export interface User {
@@ -27,12 +29,14 @@ export interface Property {
   bedrooms: number;
   bathrooms: number;
   area: number;
+  yearBuilt?: number;
   amenities: string[];
   status: 'available' | 'occupied' | 'maintenance';
   landlordId: string;
   availableFrom: string;
   rules?: string;
   featured?: boolean;
+  priceChange?: number; // ROI percentage
 }
 
 export interface Booking {
@@ -1195,6 +1199,7 @@ export interface PlatformAnalytics {
     conversionRate: number;
   };
   trends: {
+    conversionRate: number;
     userGrowth: number;
     propertyGrowth: number;
     revenueGrowth: number;

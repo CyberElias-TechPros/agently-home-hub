@@ -27,6 +27,8 @@ import DocumentTemplates from "./pages/DocumentTemplates";
 import AdminPanel from "./pages/AdminPanel";
 import Testing from "./pages/Testing";
 import Auth from "./pages/Auth";
+import About from "./pages/About";
+import AdManagement from "./pages/AdManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +63,8 @@ const App = () => (
               <Route path="/documents" element={<DocumentTemplates />} />
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="/testing" element={<Testing />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/ad-management" element={<AdManagement />} />
             </Route>
             <Route path="/auth" element={<Auth />} />
             <Route path="*" element={<NotFound />} />

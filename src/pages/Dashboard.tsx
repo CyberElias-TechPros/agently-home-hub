@@ -4,12 +4,61 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Home, FileText, Wrench, MessageSquare, Heart, Calendar } from 'lucide-react';
-import { mockBookings, mockMaintenanceRequests, mockProperties, mockUser } from '@/lib/mockData';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import AdContainer from '@/components/AdContainer';
 
 export default function Dashboard() {
-  const userBookings = mockBookings.filter(b => b.tenantId === mockUser.id);
-  const userMaintenance = mockMaintenanceRequests.filter(m => m.tenantId === mockUser.id);
+  const { data: userData, isLoading: isUserLoading } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      const response = await fetch('http://localhost:3001/api/auth/me');
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data');
+      }
+      return response.json();
+    }
+  });
+
+  const { data: bookingsData, isLoading: isBookingsLoading } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: async () => {
+      const response = await fetch('http://localhost:3001/api/bookings');
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      return response.json();
+    }
+  });
+
+  const { data: maintenanceData, isLoading: isMaintenanceLoading } = useQuery({
+    queryKey: ['maintenance'],
+    queryFn: async () => {
+      const response = await fetch('http://localhost:3001/api/maintenance');
+      if (!response.ok) {
+        throw new Error('Failed to fetch maintenance requests');
+      }
+      return response.json();
+    }
+  });
+
+  const { data: propertiesData, isLoading: isPropertiesLoading } = useQuery({
+    queryKey: ['properties'],
+    queryFn: async () => {
+      const response = await fetch('http://localhost:3001/api/properties');
+      if (!response.ok) {
+        throw new Error('Failed to fetch properties');
+      }
+      return response.json();
+    }
+  });
+
+  if (isUserLoading || isBookingsLoading || isMaintenanceLoading || isPropertiesLoading) {
+    return <div>Loading...</div>;
+  }
+
+  const userBookings = bookingsData?.filter(b => b.tenantId === userData?.id) || [];
+  const userMaintenance = maintenanceData?.filter(m => m.tenantId === userData?.id) || [];
 
   const statusColors = {
     pending: 'bg-warning',
@@ -22,35 +71,37 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen py-8 pb-20 md:pb-8">
       <div className="container mx-auto px-4">
+        <AdContainer pageType="dashboard" position="top" className="mb-8" />
+        
         {/* User Profile Header */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-6">
-              <Avatar className="h-20 w-20">
-                <AvatarFallback className="text-2xl bg-gradient-hero text-primary-foreground">
-                  {mockUser.name.split(' ').map(n => n[0]).join('')}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h1 className="text-3xl font-bold mb-1">{mockUser.name}</h1>
-                    <p className="text-muted-foreground mb-2">{mockUser.email}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">
-                        {mockUser.role.charAt(0).toUpperCase() + mockUser.role.slice(1)}
-                      </Badge>
-                      {mockUser.verified && (
-                        <Badge className="bg-success">Verified</Badge>
-                      )}
-                    </div>
+      <Card className="mb-8">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-6">
+            <Avatar className="h-20 w-20">
+              <AvatarFallback className="text-2xl bg-gradient-hero text-primary-foreground">
+                {userData?.name.split(' ').map(n => n[0]).join('')}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold mb-1">{userData?.name}</h1>
+                  <p className="text-muted-foreground mb-2">{userData?.email}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">
+                      {userData?.role.charAt(0).toUpperCase() + userData?.role.slice(1)}
+                    </Badge>
+                    {userData?.verified && (
+                      <Badge className="bg-success">Verified</Badge>
+                    )}
                   </div>
-                  <Button variant="outline">Edit Profile</Button>
                 </div>
+                <Button variant="outline">Edit Profile</Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -106,7 +157,7 @@ export default function Dashboard() {
 
           <TabsContent value="bookings" className="space-y-4">
             {userBookings.map((booking) => {
-              const property = mockProperties.find(p => p.id === booking.propertyId);
+              const property = propertiesData?.find(p => p.id === booking.propertyId);
               if (!property) return null;
 
               return (
@@ -148,7 +199,7 @@ export default function Dashboard() {
 
           <TabsContent value="maintenance" className="space-y-4">
             {userMaintenance.map((request) => {
-              const property = mockProperties.find(p => p.id === request.propertyId);
+              const property = propertiesData?.find(p => p.id === request.propertyId);
               if (!property) return null;
 
               return (
@@ -205,6 +256,8 @@ export default function Dashboard() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <AdContainer pageType="dashboard" position="bottom" />
     </div>
   );
 }

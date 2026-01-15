@@ -20,9 +20,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for existing session on mount
-    const currentUser = authService.getCurrentUser();
-    setUser(currentUser);
-    setIsLoading(false);
+    const checkAuth = async () => {
+      try {
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to restore auth session:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
 
   const login = async (credentials: LoginCredentials) => {

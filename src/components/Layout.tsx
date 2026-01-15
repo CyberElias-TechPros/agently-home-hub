@@ -19,46 +19,45 @@ export default function Layout() {
     navigate('/');
   };
 
-  // Categorized navigation structure with dropdown menus
+  // Categorized navigation structure with dropdown menus - Agently Real-Estate OS
   const navCategories = [
     {
-      label: 'Main',
+      label: 'Discover',
       items: [
         { path: '/', icon: Home, label: 'Home' },
         { path: '/properties', icon: Search, label: 'Browse Properties' },
-        { path: '/dashboard', icon: User, label: 'Dashboard' },
+        { path: '/neighborhood', icon: MapPin, label: 'Neighborhood Insights' },
+        { path: '/valuation', icon: TrendingUp, label: 'Property Valuation' },
       ]
     },
     {
-      label: 'Property Management',
+      label: 'For Tenants',
       items: [
-        { path: '/tenant', icon: User, label: 'Tenant Portal' },
+        { path: '/dashboard', icon: User, label: 'Dashboard' },
+        { path: '/roommates', icon: Users, label: 'Roommate Matching' },
+        { path: '/mortgage', icon: Calculator, label: 'Mortgage Calculator' },
+        { path: '/insurance', icon: ShieldCheck, label: 'Insurance' },
+      ]
+    },
+    {
+      label: 'For Landlords',
+      items: [
         { path: '/landlord', icon: Building, label: 'Landlord Portal' },
         { path: '/maintenance', icon: Wrench, label: 'Maintenance' },
         { path: '/maintenance-scheduling', icon: Calendar, label: 'Scheduling' },
-      ]
-    },
-    {
-      label: 'Services',
-      items: [
-        { path: '/roommates', icon: Users, label: 'Roommate Matching' },
-        { path: '/vendors', icon: Briefcase, label: 'Vendor Marketplace' },
-        { path: '/insurance', icon: ShieldCheck, label: 'Insurance' },
-        { path: '/mortgage', icon: Calculator, label: 'Mortgage Calculator' },
         { path: '/auctions', icon: Gavel, label: 'Auctions' },
       ]
     },
     {
-      label: 'Tools & Insights',
+      label: 'For Agents',
       items: [
-        { path: '/valuation', icon: TrendingUp, label: 'Property Valuation' },
-        { path: '/neighborhood', icon: MapPin, label: 'Neighborhood Insights' },
         { path: '/agents', icon: Award, label: 'Agent CRM' },
+        { path: '/vendors', icon: Briefcase, label: 'Vendor Marketplace' },
         { path: '/documents', icon: FileText, label: 'Document Templates' },
       ]
     },
     {
-      label: 'Management',
+      label: 'Platform',
       items: [
         { path: '/bookings', icon: Calendar, label: 'Bookings' },
         { path: '/messages', icon: MessageSquare, label: 'Messages' },
@@ -122,6 +121,16 @@ export default function Layout() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ))}
+              {/* About Link */}
+              <Link to="/about">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex items-center gap-2 whitespace-nowrap hover:bg-primary/10"
+                >
+                  About
+                </Button>
+              </Link>
             </nav>
 
             {/* User Actions */}
@@ -165,11 +174,21 @@ export default function Layout() {
                             </div>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
+                        {/* About Link */}
+                        <div className="px-2">
+                          <Link
+                            to="/about"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors hover:bg-muted"
+                          >
+                            <span className="text-sm">About</span>
+                          </Link>
+                        </div>
+                       </div>
+                     </div>
+                   </div>
+                 </SheetContent>
+               </Sheet>
 
               {isAuthenticated && user ? (
                 <DropdownMenu>
@@ -227,6 +246,68 @@ export default function Layout() {
         <Outlet />
       </main>
 
+      {/* Footer */}
+      <footer className="bg-gradient-to-r from-background via-background/50 to-background border-t border-border/50">
+        <div className="container mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-3 mb-4">
+                <Building2 className="h-8 w-8 text-primary" />
+                <span className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+                  Agently
+                </span>
+              </div>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                A world-class digital real-estate operating system that unifies property discovery,
+                rental payments, landlord & tenant management, agent professionalism, legal protection,
+                fintech, and trust infrastructure into one elegant platform.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                  AI-Powered
+                </span>
+                <span className="bg-accent/10 text-accent px-3 py-1 rounded-full text-sm font-medium">
+                  Trust-First
+                </span>
+                <span className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                  Category-Defining
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-4">For Tenants</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><Link to="/properties" className="hover:text-primary transition-colors">Browse Properties</Link></li>
+                <li><Link to="/roommates" className="hover:text-primary transition-colors">Roommate Matching</Link></li>
+                <li><Link to="/mortgage" className="hover:text-primary transition-colors">Mortgage Calculator</Link></li>
+                <li><Link to="/insurance" className="hover:text-primary transition-colors">Insurance</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-4">For Landlords</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><Link to="/landlord" className="hover:text-primary transition-colors">Landlord Portal</Link></li>
+                <li><Link to="/maintenance" className="hover:text-primary transition-colors">Maintenance</Link></li>
+                <li><Link to="/auctions" className="hover:text-primary transition-colors">Auctions</Link></li>
+                <li><Link to="/valuation" className="hover:text-primary transition-colors">Property Valuation</Link></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-border/50 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              © 2025 Agently. All rights reserved. Built for the future of real estate.
+            </div>
+            <div className="flex gap-6 text-sm text-muted-foreground">
+              <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
+              <Link to="/contact" className="hover:text-primary transition-colors">Contact Us</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

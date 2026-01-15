@@ -1,389 +1,842 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, BarChart3, Shield, Settings, FileText, AlertTriangle, DollarSign, Activity, Database, Server, Eye, Edit, Trash2, CheckCircle, XCircle, Clock, TrendingUp, UserCheck, MessageSquare, Flag, Download, Lock } from 'lucide-react';
-import { mockAdminUsers, mockPlatformAnalytics, mockContentModeration, mockSystemConfiguration, mockAuditLogs, mockFinancialReports, mockNotificationTemplates, mockSupportTickets, mockFeatureFlags, mockBackupStatus, mockSystemHealth } from '@/lib/mockData';
-import type { AdminUser, PlatformAnalytics, ContentModeration, SystemConfiguration, AuditLog, FinancialReport, NotificationTemplate, SupportTicket, FeatureFlag, BackupStatus, SystemHealth } from '@/types';
+import { Search, Users, Shield, BarChart3, AlertTriangle, CheckCircle, Clock, Calendar, MessageSquare, Settings, Globe, Database, Activity, Eye, Edit, Trash2, Plus, Filter, Download, Upload } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import { apiService } from '@/lib/api';
+import { AdminUser, PlatformAnalytics, ContentModeration, SystemConfiguration, AuditLog, FinancialReport, NotificationTemplate, SupportTicket, FeatureFlag, BackupStatus, SystemHealth } from '@/types';
 
 const AdminPanel = () => {
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // State for admin data
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [platformAnalytics, setPlatformAnalytics] = useState<PlatformAnalytics | null>(null);
+  const [contentModeration, setContentModeration] = useState<ContentModeration[]>([]);
+  const [systemConfiguration, setSystemConfiguration] = useState<SystemConfiguration[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [financialReports, setFinancialReports] = useState<FinancialReport[]>([]);
+  const [notificationTemplates, setNotificationTemplates] = useState<NotificationTemplate[]>([]);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
+  const [backupStatus, setBackupStatus] = useState<BackupStatus[]>([]);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return 'bg-green-500';
-      case 'degraded': return 'bg-yellow-500';
-      case 'unhealthy': return 'bg-red-500';
-      case 'completed': return 'bg-green-500';
-      case 'failed': return 'bg-red-500';
-      case 'running': return 'bg-blue-500';
-      case 'pending': return 'bg-yellow-500';
-      case 'approved': return 'bg-green-500';
-      case 'rejected': return 'bg-red-500';
-      case 'open': return 'bg-blue-500';
-      case 'in_progress': return 'bg-yellow-500';
-      case 'resolved': return 'bg-green-500';
-      case 'closed': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadAdminData();
+      // Set up real-time monitoring
+      const interval = setInterval(() => {
+        loadSystemHealth();
+      }, 30000); // Update every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, user]);
+
+  const loadAdminData = async () => {
+    try {
+      setLoading(true);
+      const [adminUsersData, platformAnalyticsData, contentModerationData, systemConfigurationData, auditLogsData, financialReportsData, notificationTemplatesData, supportTicketsData, featureFlagsData, backupStatusData, systemHealthData] = await Promise.all([
+        apiService.getAdminUsers(),
+        apiService.getPlatformAnalytics(),
+        apiService.getContentModeration(),
+        apiService.getSystemConfiguration(),
+        apiService.getAuditLogs(),
+        apiService.getFinancialReports(),
+        apiService.getNotificationTemplates(),
+        apiService.getSupportTickets(),
+        apiService.getFeatureFlags(),
+        apiService.getBackupStatus(),
+        apiService.getSystemHealth()
+      ]);
+      
+      setAdminUsers(adminUsersData);
+      setPlatformAnalytics(platformAnalyticsData);
+      setContentModeration(contentModerationData);
+      setSystemConfiguration(systemConfigurationData);
+      setAuditLogs(auditLogsData);
+      setFinancialReports(financialReportsData);
+      setNotificationTemplates(notificationTemplatesData);
+      setSupportTickets(supportTicketsData);
+      setFeatureFlags(featureFlagsData);
+      setBackupStatus(backupStatusData);
+      setSystemHealth(systemHealthData);
+    } catch (error) {
+      toast({
+        title: "Error loading admin data",
+        description: "Failed to load administrative information. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSystemHealth = async () => {
+    try {
+      const health = await apiService.getSystemHealth();
+      setSystemHealth(health);
+    } catch (error) {
+      console.error("Failed to load system health:", error);
+    }
+  };
+
+  const updateUserRole = async (userId: string, role: string) => {
+    try {
+      setLoading(true);
+      await apiService.updateUserRole(userId, role);
+      setAdminUsers(adminUsers.map(u => u.id === userId ? {...u, role} : u));
+      toast({
+        title: "Role Updated",
+        description: "User role has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update user role. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleUserStatus = async (userId: string, isActive: boolean) => {
+    try {
+      setLoading(true);
+      await apiService.toggleUserStatus(userId, !isActive);
+      setAdminUsers(adminUsers.map(u => u.id === userId ? {...u, isActive: !isActive} : u));
+      toast({
+        title: "Status Updated",
+        description: `User has been ${isActive ? 'deactivated' : 'activated'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update user status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resolveContentModeration = async (moderationId: string, action: string) => {
+    try {
+      setLoading(true);
+      await apiService.resolveContentModeration(moderationId, action);
+      setContentModeration(contentModeration.map(m => m.id === moderationId ? {...m, status: action} : m));
+      toast({
+        title: "Content Moderated",
+        description: `Content has been ${action}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Moderation Failed",
+        description: "Failed to moderate content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSystemConfig = async (configId: string, value: any) => {
+    try {
+      setLoading(true);
+      await apiService.updateSystemConfiguration(configId, value);
+      setSystemConfiguration(systemConfiguration.map(c => c.id === configId ? {...c, value} : c));
+      toast({
+        title: "Configuration Updated",
+        description: "System configuration has been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update configuration. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'low': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
       case 'critical': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
       case 'info': return 'bg-blue-100 text-blue-800';
-      case 'warning': return 'bg-yellow-100 text-yellow-800';
-      case 'error': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'inactive': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'under_review': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getHealthStatusColor = (status: string) => {
+    return status === 'healthy' ? 'bg-green-500' : 'bg-red-500';
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-        <p className="text-muted-foreground">Platform management and oversight dashboard</p>
+        <p className="text-muted-foreground">System administration and platform management</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="moderation">Moderation</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="support">Support</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+      {!isAuthenticated ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Sign In Required</h3>
+            <p className="text-muted-foreground mb-4">Please sign in to access admin panel.</p>
+            <Button onClick={() => window.location.href = '/auth'}>Sign In</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-8">
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="moderation">Moderation</TabsTrigger>
+            <TabsTrigger value="config">Configuration</TabsTrigger>
+            <TabsTrigger value="logs">Audit Logs</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="support">Support</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="dashboard" className="mt-6">
-          <div className="grid gap-6">
-            {/* Key Metrics */}
+          <TabsContent value="dashboard" className="mt-6">
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{mockPlatformAnalytics.metrics.totalUsers.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">
-                    +{mockPlatformAnalytics.trends.userGrowth}% from last month
-                  </p>
-                </CardContent>
-              </Card>
+              {/* Platform Metrics */}
+              {platformAnalytics && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Users className="h-5 w-5 mr-2" />
+                        Total Users
+                      </CardTitle>
+                      <CardDescription>{platformAnalytics.period}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{platformAnalytics.metrics.totalUsers.toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {platformAnalytics.trends.userGrowth > 0 ? '+' : ''}{platformAnalytics.trends.userGrowth}% from last period
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Listings</CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{mockPlatformAnalytics.metrics.activeListings.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {mockPlatformAnalytics.metrics.totalProperties} total properties
-                  </p>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <BarChart3 className="h-5 w-5 mr-2" />
+                        Active Users
+                      </CardTitle>
+                      <CardDescription>{platformAnalytics.period}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{platformAnalytics.metrics.activeUsers.toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {platformAnalytics.trends.engagementRate > 0 ? '+' : ''}{platformAnalytics.trends.engagementRate}% engagement
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">${(mockPlatformAnalytics.metrics.revenue / 1000000).toFixed(1)}M</div>
-                  <p className="text-xs text-muted-foreground">
-                    +{mockPlatformAnalytics.trends.revenueGrowth}% from last month
-                  </p>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <DollarSign className="h-5 w-5 mr-2" />
+                        Revenue
+                      </CardTitle>
+                      <CardDescription>{platformAnalytics.period}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">${(platformAnalytics.metrics.revenue / 1000000).toFixed(1)}M</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {platformAnalytics.trends.revenueGrowth > 0 ? '+' : ''}{platformAnalytics.trends.revenueGrowth}% growth
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">System Health</CardTitle>
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">98.5%</div>
-                  <p className="text-xs text-muted-foreground">
-                    All services operational
-                  </p>
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Activity className="h-5 w-5 mr-2" />
+                        Transactions
+                      </CardTitle>
+                      <CardDescription>{platformAnalytics.period}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold">{platformAnalytics.metrics.totalTransactions.toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        {platformAnalytics.trends.conversionRate > 0 ? '+' : ''}{platformAnalytics.trends.conversionRate}% conversion
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
 
-            {/* Recent Activity & Alerts */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card>
+            {/* System Health */}
+            {systemHealth && (
+              <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>Latest admin actions and system events</CardDescription>
+                  <CardTitle className="flex items-center">
+                    <Activity className="h-5 w-5 mr-2" />
+                    System Health
+                  </CardTitle>
+                  <CardDescription>Real-time system status</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {mockAuditLogs.slice(0, 5).map((log) => (
-                      <div key={log.id} className="flex items-center space-x-4">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{log.action.replace('_', ' ')}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {log.userId} • {new Date(log.timestamp).toLocaleString()}
-                          </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {systemHealth.services.map((service) => (
+                      <div key={service.name} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{service.name}</span>
+                          <div className={`w-3 h-3 rounded-full ${getHealthStatusColor(service.status)}`}></div>
                         </div>
-                        <Badge className={getSeverityColor(log.severity)}>
-                          {log.severity}
-                        </Badge>
+                        <div className="text-sm text-muted-foreground">Uptime: {service.uptime}%</div>
+                        <div className="text-sm text-muted-foreground">Response: {service.responseTime}ms</div>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>System Alerts</CardTitle>
-                  <CardDescription>Active system alerts and notifications</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockSystemHealth.alerts.map((alert) => (
-                      <div key={alert.id} className="flex items-start space-x-4">
-                        <AlertTriangle className={`h-5 w-5 mt-0.5 ${alert.severity === 'critical' ? 'text-red-500' : alert.severity === 'warning' ? 'text-yellow-500' : 'text-blue-500'}`} />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{alert.title}</p>
-                          <p className="text-xs text-muted-foreground">{alert.message}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(alert.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                        {!alert.acknowledged && (
-                          <Button size="sm" variant="outline">Acknowledge</Button>
-                        )}
-                      </div>
-                    ))}
+                  {/* Infrastructure Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm text-muted-foreground">CPU Usage</div>
+                      <div className="text-2xl font-bold">{systemHealth.infrastructure.cpu}%</div>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm text-muted-foreground">Memory Usage</div>
+                      <div className="text-2xl font-bold">{systemHealth.infrastructure.memory}%</div>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm text-muted-foreground">Disk Usage</div>
+                      <div className="text-2xl font-bold">{systemHealth.infrastructure.disk}%</div>
+                    </div>
+                    <div className="p-4 bg-muted rounded-lg">
+                      <div className="text-sm text-muted-foreground">Network</div>
+                      <div className="text-2xl font-bold">{systemHealth.infrastructure.network}%</div>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common administrative tasks</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Users className="h-6 w-6 mb-2" />
-                    Manage Users
-                  </Button>
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Shield className="h-6 w-6 mb-2" />
-                    Content Moderation
-                  </Button>
-                  <Button variant="outline" className="h-20 flex-col">
-                    <BarChart3 className="h-6 w-6 mb-2" />
-                    View Analytics
-                  </Button>
-                  <Button variant="outline" className="h-20 flex-col">
-                    <Settings className="h-6 w-6 mb-2" />
-                    System Settings
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="users" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="h-5 w-5 mr-2" />
-                  Admin Users
-                </CardTitle>
-                <CardDescription>Manage administrative user accounts and permissions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="mb-4">
-                  <Users className="h-4 w-4 mr-2" />
-                  Add Admin User
-                </Button>
-
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Last Login</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mockAdminUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.name}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
+                  {/* Alerts */}
+                  {systemHealth.alerts.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {systemHealth.alerts.map((alert) => (
+                        <div key={alert.id} className={`p-3 border rounded-lg ${alert.severity === 'warning' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200'}`}>
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center space-x-2">
+                              <span className={`w-3 h-3 rounded-full ${alert.severity === 'warning' ? 'bg-yellow-500' : 'bg-red-500'}`}></span>
+                              <span className="font-medium">{alert.title}</span>
                             </div>
+                            <div className="text-sm text-muted-foreground">{alert.createdAt}</div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{user.role.replace('_', ' ')}</Badge>
-                        </TableCell>
-                        <TableCell>{new Date(user.lastLogin).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                            {user.isActive ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                          <p className="text-sm mt-1">{alert.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
 
-        <TabsContent value="moderation" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Flag className="h-5 w-5 mr-2" />
-                  Content Moderation Queue
-                </CardTitle>
-                <CardDescription>Review and moderate reported content</CardDescription>
-              </CardHeader>
-              <CardContent>
+          <TabsContent value="users" className="mt-6">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 w-64"
+                    />
+                  </div>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Admin Users</CardTitle>
+                  <CardDescription>Manage administrative users and permissions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Last Login</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {adminUsers.map((admin) => (
+                        <TableRow key={admin.id}>
+                          <TableCell className="font-medium">{admin.name}</TableCell>
+                          <TableCell>{admin.email}</TableCell>
+                          <TableCell>
+                            <Select value={admin.role} onValueChange={(value) => updateUserRole(admin.id, value)}>
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="super_admin">Super Admin</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="moderator">Moderator</SelectItem>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(admin.isActive ? 'active' : 'inactive')}>
+                              {admin.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(admin.lastLogin).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button variant="outline" size="sm" onClick={() => toggleUserStatus(admin.id, admin.isActive)}>
+                                {admin.isActive ? 'Deactivate' : 'Activate'}
+                              </Button>
+                              <Button variant="outline" size="sm">
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="moderation" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Content Moderation</h3>
+              
+              {contentModeration.length > 0 ? (
                 <div className="space-y-4">
-                  {mockContentModeration.map((item) => (
-                    <Card key={item.id}>
-                      <CardContent className="pt-6">
+                  {contentModeration.map((moderation) => (
+                    <Card key={moderation.id}>
+                      <CardContent className="p-6">
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <div className="flex items-center space-x-2 mb-2">
-                              <Badge variant="outline">{item.contentType}</Badge>
-                              <Badge className={getSeverityColor(item.priority)}>
-                                {item.priority}
-                              </Badge>
-                              <Badge className={getStatusColor(item.status)}>
-                                {item.status.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                            <p className="font-medium">{item.reason}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Reported by: {item.reportedBy} • {new Date(item.createdAt).toLocaleDateString()}
-                            </p>
+                            <h4 className="font-semibold">{moderation.contentType}: {moderation.contentId}</h4>
+                            <p className="text-sm text-muted-foreground">Reported by: {moderation.reportedBy}</p>
                           </div>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">Review</Button>
-                            <Button size="sm" variant="outline">View Content</Button>
+                          <Badge className={getStatusColor(moderation.status)}>
+                            {moderation.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Reason:</span>
+                            <p className="mt-1">{moderation.reason}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Priority:</span>
+                            <Badge className={getSeverityColor(moderation.priority)}>
+                              {moderation.priority}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Assigned to:</span>
+                            <p className="mt-1">{moderation.assignedTo || 'Unassigned'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Created:</span>
+                            <p className="mt-1">{new Date(moderation.createdAt).toLocaleDateString()}</p>
                           </div>
                         </div>
 
-                        {item.notes.length > 0 && (
-                          <div className="border-t pt-4">
-                            <p className="text-sm font-medium mb-2">Notes</p>
-                            <div className="space-y-2">
-                              {item.notes.map((note) => (
-                                <div key={note.id} className="text-sm">
-                                  <span className="font-medium">{note.author}:</span> {note.note}
-                                  <span className="text-muted-foreground ml-2">
-                                    {new Date(note.createdAt).toLocaleDateString()}
-                                  </span>
+                        {moderation.notes.length > 0 && (
+                          <div className="mb-4">
+                            <span className="text-sm text-muted-foreground">Notes</span>
+                            <div className="space-y-2 mt-2">
+                              {moderation.notes.map((note, index) => (
+                                <div key={index} className="p-2 bg-muted rounded text-sm">
+                                  <div className="font-medium">{note.author}</div>
+                                  <div className="text-muted-foreground">{note.note}</div>
+                                  <div className="text-xs text-muted-foreground mt-1">{new Date(note.createdAt).toLocaleString()}</div>
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
+
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => resolveContentModeration(moderation.id, 'approved')}>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => resolveContentModeration(moderation.id, 'rejected')}>
+                            <AlertTriangle className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+              ) : (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Moderation Items</h3>
+                    <p className="text-muted-foreground">All content is currently approved.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
 
-        <TabsContent value="analytics" className="mt-6">
-          {mockPlatformAnalytics && (
-            <div className="grid gap-6">
+          <TabsContent value="config" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">System Configuration</h3>
+              
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {systemConfiguration.map((config) => (
+                  <Card key={config.id}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{config.key}</CardTitle>
+                      <CardDescription>{config.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Value</Label>
+                          {config.type === 'boolean' ? (
+                            <div className="flex items-center space-x-2 mt-2">
+                              <input
+                                type="checkbox"
+                                checked={config.value}
+                                onChange={(e) => updateSystemConfig(config.id, e.target.checked)}
+                                className="rounded"
+                              />
+                              <span>{config.value ? 'Enabled' : 'Disabled'}</span>
+                            </div>
+                          ) : config.type === 'number' ? (
+                            <Input
+                              type="number"
+                              value={config.value}
+                              onChange={(e) => updateSystemConfig(config.id, parseInt(e.target.value))}
+                              className="mt-2"
+                            />
+                          ) : (
+                            <Input
+                              value={config.value}
+                              onChange={(e) => updateSystemConfig(config.id, e.target.value)}
+                              className="mt-2"
+                            />
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                          <div>Category: {config.category}</div>
+                          <div>Type: {config.type}</div>
+                          <div>Public: {config.isPublic ? 'Yes' : 'No'}</div>
+                          <div>Modified: {new Date(config.lastModified).toLocaleDateString()}</div>
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                          Modified by: {config.modifiedBy}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="logs" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Audit Logs</h3>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Audit Trail</CardTitle>
+                  <CardDescription>System activity and user actions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Resource</TableHead>
+                        <TableHead>Timestamp</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Severity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell className="font-medium">{log.userId}</TableCell>
+                          <TableCell>{log.action}</TableCell>
+                          <TableCell>{log.resource}</TableCell>
+                          <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                          <TableCell>{log.ipAddress}</TableCell>
+                          <TableCell>
+                            <Badge className={getSeverityColor(log.severity)}>
+                              {log.severity}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="reports" className="mt-6">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Financial Reports</h3>
+                <div className="flex space-x-2">
+                  <Button variant="outline">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                  <Button>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Generate Report
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {financialReports.map((report) => (
+                  <Card key={report.id}>
+                    <CardHeader>
+                      <CardTitle>{report.period}</CardTitle>
+                      <CardDescription>{report.type} Report</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="text-center p-4 bg-green-50 rounded-lg">
+                          <div className="text-2xl font-bold text-green-700">
+                            ${report.data.totalAmount.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-green-700">Total Revenue</div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Transactions:</span>
+                            <span className="ml-2 font-medium">{report.data.transactionCount}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Avg Amount:</span>
+                            <span className="ml-2 font-medium">${report.data.averageAmount}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Details
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="support" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Support Tickets</h3>
+              
+              {supportTickets.length > 0 ? (
+                <div className="space-y-4">
+                  {supportTickets.map((ticket) => (
+                    <Card key={ticket.id}>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="font-semibold">{ticket.subject}</h4>
+                            <p className="text-sm text-muted-foreground">User: {ticket.userId}</p>
+                          </div>
+                          <Badge className={getStatusColor(ticket.status)}>
+                            {ticket.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Category:</span>
+                            <span className="ml-2 font-medium">{ticket.category}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Priority:</span>
+                            <Badge className={getSeverityColor(ticket.priority)}>
+                              {ticket.priority}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Assigned to:</span>
+                            <span className="ml-2 font-medium">{ticket.assignedTo || 'Unassigned'}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Created:</span>
+                            <span className="ml-2 font-medium">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <span className="text-sm text-muted-foreground">Description</span>
+                          <p className="mt-2 text-sm">{ticket.messages[0]?.message}</p>
+                        </div>
+
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm">
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Respond
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Edit className="h-4 w-4 mr-1" />
+                            Update Status
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Support Tickets</h3>
+                    <p className="text-muted-foreground">All support requests have been resolved.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="system" className="mt-6">
+            <div className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
+                {/* Feature Flags */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>User Demographics</CardTitle>
-                    <CardDescription>User distribution by role and location</CardDescription>
+                    <CardTitle className="flex items-center">
+                      <Settings className="h-5 w-5 mr-2" />
+                      Feature Flags
+                    </CardTitle>
+                    <CardDescription>Toggle features and A/B tests</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div>
-                        <p className="text-sm font-medium mb-2">By Role</p>
-                        {mockPlatformAnalytics.demographics.userByRole.map((role, index) => (
-                          <div key={index} className="flex justify-between items-center mb-2">
-                            <span className="text-sm capitalize">{role.role}</span>
-                            <span className="text-sm font-medium">{role.count.toLocaleString()}</span>
+                      {featureFlags.map((flag) => (
+                        <div key={flag.id} className="flex justify-between items-center p-3 border rounded">
+                          <div>
+                            <div className="font-medium">{flag.name}</div>
+                            <div className="text-sm text-muted-foreground">{flag.description}</div>
                           </div>
-                        ))}
-                      </div>
-
-                      <div>
-                        <p className="text-sm font-medium mb-2">By Location</p>
-                        {mockPlatformAnalytics.demographics.userByLocation.map((location, index) => (
-                          <div key={index} className="flex justify-between items-center mb-2">
-                            <span className="text-sm">{location.location}</span>
-                            <span className="text-sm font-medium">{location.count.toLocaleString()}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm">{flag.rolloutPercentage}%</span>
+                            <input
+                              type="checkbox"
+                              checked={flag.enabled}
+                              onChange={(e) => {
+                                // Update feature flag logic would go here
+                              }}
+                              className="rounded"
+                            />
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* Backup Status */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Device Types</CardTitle>
-                    <CardDescription>User device preferences</CardDescription>
+                    <CardTitle className="flex items-center">
+                      <Database className="h-5 w-5 mr-2" />
+                      Backup Status
+                    </CardTitle>
+                    <CardDescription>System backup and recovery</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {mockPlatformAnalytics.demographics.deviceTypes.map((device, index) => (
-                        <div key={index}>
+                      {backupStatus.map((backup) => (
+                        <div key={backup.id} className="p-3 border rounded">
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm">{device.device}</span>
-                            <span className="text-sm font-medium">{device.percentage}%</span>
+                            <span className="font-medium">{backup.type} Backup</span>
+                            <Badge className={getStatusColor(backup.status)}>
+                              {backup.status}
+                            </Badge>
                           </div>
-                          <Progress value={device.percentage} className="h-2" />
+                          <div className="text-sm text-muted-foreground">
+                            Last: {new Date(backup.completedAt || backup.startedAt).toLocaleDateString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Size: {(backup.size / (1024 * 1024 * 1024)).toFixed(2)} GB
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -391,311 +844,9 @@ const AdminPanel = () => {
                 </Card>
               </div>
             </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="system" className="mt-6">
-          <div className="grid gap-6">
-            {/* System Health */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Server className="h-5 w-5 mr-2" />
-                  System Health
-                </CardTitle>
-                <CardDescription>Monitor service status and infrastructure</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {mockSystemHealth.services.map((service) => (
-                    <div key={service.name} className="p-4 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">{service.name}</span>
-                        <div className={`w-3 h-3 rounded-full ${getStatusColor(service.status)}`} />
-                      </div>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <div>Uptime: {service.uptime}%</div>
-                        <div>Response: {service.responseTime}ms</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6">
-                  <h4 className="font-medium mb-4">Infrastructure Metrics</h4>
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">CPU Usage</p>
-                      <p className="text-2xl font-bold">{mockSystemHealth.infrastructure.cpu}%</p>
-                      <Progress value={mockSystemHealth.infrastructure.cpu} className="mt-2" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Memory Usage</p>
-                      <p className="text-2xl font-bold">{mockSystemHealth.infrastructure.memory}%</p>
-                      <Progress value={mockSystemHealth.infrastructure.memory} className="mt-2" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Disk Usage</p>
-                      <p className="text-2xl font-bold">{mockSystemHealth.infrastructure.disk}%</p>
-                      <Progress value={mockSystemHealth.infrastructure.disk} className="mt-2" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Network Usage</p>
-                      <p className="text-2xl font-bold">{mockSystemHealth.infrastructure.network}%</p>
-                      <Progress value={mockSystemHealth.infrastructure.network} className="mt-2" />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Backup Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Database className="h-5 w-5 mr-2" />
-                  Backup Status
-                </CardTitle>
-                <CardDescription>Recent backup operations and status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockBackupStatus.map((backup) => (
-                    <div key={backup.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-3 h-3 rounded-full ${getStatusColor(backup.status)}`} />
-                        <div>
-                          <p className="font-medium capitalize">{backup.type} Backup</p>
-                          <p className="text-sm text-muted-foreground">
-                            {backup.size ? `${(backup.size / 1073741824).toFixed(1)}GB` : 'Size unknown'} • 
-                            Retention: {backup.retention} days
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm">
-                          {backup.completedAt ? 
-                            `Completed ${new Date(backup.completedAt).toLocaleString()}` : 
-                            `Started ${new Date(backup.startedAt).toLocaleString()}`
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="financial" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <DollarSign className="h-5 w-5 mr-2" />
-                  Financial Reports
-                </CardTitle>
-                <CardDescription>Revenue, commissions, and financial analytics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {mockFinancialReports.map((report) => (
-                    <Card key={report.id}>
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg capitalize">{report.type} Report</CardTitle>
-                            <CardDescription>{report.period}</CardDescription>
-                          </div>
-                          <Button variant="outline">
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Total Amount</p>
-                            <p className="text-2xl font-bold">${report.data.totalAmount.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Transactions</p>
-                            <p className="text-2xl font-bold">{report.data.transactionCount.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Average Amount</p>
-                            <p className="text-2xl font-bold">${report.data.averageAmount.toFixed(2)}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Generated</p>
-                            <p className="text-sm">{new Date(report.generatedAt).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-medium mb-3">Revenue Breakdown</p>
-                          <div className="space-y-2">
-                            {report.data.breakdown.map((item, index) => (
-                              <div key={index} className="flex justify-between items-center">
-                                <span className="text-sm">{item.category}</span>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full"
-                                      style={{ width: `${item.percentage}%` }}
-                                    ></div>
-                                  </div>
-                                  <span className="text-sm font-medium w-16 text-right">
-                                    ${item.amount.toLocaleString()}
-                                  </span>
-                                  <span className="text-sm text-muted-foreground w-12 text-right">
-                                    {item.percentage}%
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="support" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2" />
-                  Support Tickets
-                </CardTitle>
-                <CardDescription>Manage customer support requests</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockSupportTickets.map((ticket) => (
-                    <Card key={ticket.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <Badge variant="outline">{ticket.category}</Badge>
-                              <Badge className={getSeverityColor(ticket.priority)}>
-                                {ticket.priority}
-                              </Badge>
-                              <Badge className={getStatusColor(ticket.status)}>
-                                {ticket.status.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                            <h4 className="font-semibold">{ticket.subject}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              User: {ticket.userId} • Created: {new Date(ticket.createdAt).toLocaleDateString()}
-                              {ticket.assignedTo && ` • Assigned to: ${ticket.assignedTo}`}
-                            </p>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">View</Button>
-                            <Button size="sm">Respond</Button>
-                          </div>
-                        </div>
-
-                        <div className="text-sm text-muted-foreground">
-                          {ticket.messages.length} messages • Last updated: {new Date(ticket.updatedAt).toLocaleDateString()}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="settings" className="mt-6">
-          <div className="grid gap-6">
-            {/* System Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Settings className="h-5 w-5 mr-2" />
-                  System Configuration
-                </CardTitle>
-                <CardDescription>Manage platform settings and configuration</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockSystemConfiguration.map((config) => (
-                    <div key={config.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-medium">{config.key.replace('_', ' ')}</span>
-                          <Badge variant="outline" className="text-xs">{config.category}</Badge>
-                          {!config.isPublic && <Lock className="h-4 w-4 text-muted-foreground" />}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{config.description}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Last modified: {new Date(config.lastModified).toLocaleDateString()} by {config.modifiedBy}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium">
-                          {config.type === 'boolean' ? (config.value ? 'Enabled' : 'Disabled') : String(config.value)}
-                        </span>
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Feature Flags */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Feature Flags</CardTitle>
-                <CardDescription>Control feature rollout and testing</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockFeatureFlags.map((flag) => (
-                    <div key={flag.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-medium">{flag.name}</span>
-                          {flag.enabled ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <XCircle className="h-4 w-4 text-red-500" />
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{flag.description}</p>
-                        <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
-                          <span>Rollout: {flag.rolloutPercentage}%</span>
-                          {flag.targetUsers.length > 0 && (
-                            <span>Target: {flag.targetUsers.join(', ')}</span>
-                          )}
-                        </div>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        <Settings className="h-4 w-4 mr-1" />
-                        Configure
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 };

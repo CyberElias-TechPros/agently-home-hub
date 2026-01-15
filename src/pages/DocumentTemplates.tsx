@@ -1,659 +1,921 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, PenTool, CheckCircle, AlertTriangle, Download, Eye, Edit, Share, Lock, Unlock, Star, TrendingUp, BarChart3, Shield, Clock } from 'lucide-react';
-import { mockDocumentTemplates, mockGeneratedDocuments, mockESignatureRequests, mockDocumentCompliance, mockDocumentAnalytics, mockLegalReviews } from '@/lib/mockData';
-import type { DocumentTemplate, GeneratedDocument, ESignatureRequest, DocumentCompliance, DocumentAnalytics, LegalReview } from '@/types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { FileText, Download, Upload, Edit, Eye, Share2, CheckCircle, Clock, AlertTriangle, Users, Shield, FileCheck, FileSignature } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import { apiService } from '@/lib/api';
+import { DocumentTemplate, GeneratedDocument, ESignatureRequest, DocumentCompliance, DocumentVersion, LegalReview, DocumentAnalytics } from '@/types';
 
 const DocumentTemplates = () => {
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('templates');
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('1');
+  
+  // State for document management
+  const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
+  const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
+  const [signatureRequests, setSignatureRequests] = useState<ESignatureRequest[]>([]);
+  const [compliance, setCompliance] = useState<DocumentCompliance[]>([]);
+  const [versions, setVersions] = useState<DocumentVersion[]>([]);
+  const [legalReviews, setLegalReviews] = useState<LegalReview[]>([]);
+  const [analytics, setAnalytics] = useState<DocumentAnalytics | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Form state for document generation
+  const [templateForm, setTemplateForm] = useState<Record<string, any>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [parties, setParties] = useState<Array<{ name: string, email: string, role: string }>>([]);
 
-  const templateCategories = ['lease', 'contract', 'agreement', 'disclosure', 'addendum', 'notice'];
-  const jurisdictions = ['California', 'New York', 'Texas', 'Florida', 'Federal'];
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadDocumentData();
+    }
+  }, [isAuthenticated, user]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-500';
-      case 'review': return 'bg-yellow-500';
-      case 'signed': return 'bg-blue-500';
-      case 'completed': return 'bg-green-500';
-      case 'cancelled': return 'bg-red-500';
-      default: return 'bg-gray-500';
+  const loadDocumentData = async () => {
+    try {
+      setLoading(true);
+      const [templatesData, generatedDocsData, signatureRequestsData, complianceData, versionsData, legalReviewsData, analyticsData] = await Promise.all([
+        apiService.getDocumentTemplates(),
+        apiService.getGeneratedDocuments(user.id),
+        apiService.getSignatureRequests(user.id),
+        apiService.getDocumentCompliance(),
+        apiService.getDocumentVersions(),
+        apiService.getLegalReviews(),
+        apiService.getDocumentAnalytics()
+      ]);
+      
+      setTemplates(templatesData);
+      setGeneratedDocs(generatedDocsData);
+      setSignatureRequests(signatureRequestsData);
+      setCompliance(complianceData);
+      setVersions(versionsData);
+      setLegalReviews(legalReviewsData);
+      setAnalytics(analyticsData);
+    } catch (error) {
+      toast({
+        title: "Error loading document data",
+        description: "Failed to load document information. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getComplianceColor = (status: string) => {
-    switch (status) {
-      case 'compliant': return 'bg-green-100 text-green-800';
-      case 'non_compliant': return 'bg-red-100 text-red-800';
-      case 'pending_review': return 'bg-yellow-100 text-yellow-800';
-      case 'requires_update': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const generateDocument = async () => {
+    try {
+      setLoading(true);
+      const template = templates.find(t => t.id === selectedTemplate);
+      if (!template) throw new Error("Template not found");
+
+      const document = await apiService.generateDocument({
+        templateId: selectedTemplate,
+        title: `${template.name} - ${new Date().toLocaleDateString()}`,
+        variables: templateForm,
+        parties: parties,
+        status: 'draft',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        createdBy: user.id
+      });
+      
+      setGeneratedDocs([...generatedDocs, document]);
+      toast({
+        title: "Document Generated",
+        description: "Your document has been created successfully!",
+      });
+    } catch (error) {
+      toast({
+        title: "Generation Failed",
+        description: "Please check your inputs and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getRiskColor = (level: string) => {
-    switch (level) {
-      case 'low': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'critical': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const requestSignature = async (documentId: string) => {
+    try {
+      setLoading(true);
+      const signatureRequest = await apiService.requestSignature({
+        documentId,
+        partyId: parties[0].email, // First party
+        status: 'pending',
+        sentAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+      });
+      
+      setSignatureRequests([...signatureRequests, signatureRequest]);
+      toast({
+        title: "Signature Requested",
+        description: "Signature request has been sent to all parties.",
+      });
+    } catch (error) {
+      toast({
+        title: "Signature Request Failed",
+        description: "Please check the document and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const downloadDocument = async (documentId: string) => {
+    try {
+      setLoading(true);
+      await apiService.downloadDocument(documentId);
+      toast({
+        title: "Download Started",
+        description: "Your document is being downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestLegalReview = async (documentId: string) => {
+    try {
+      setLoading(true);
+      const review = await apiService.requestLegalReview({
+        documentId,
+        reviewerId: 'lawyer1', // Default reviewer
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+        comments: []
+      });
+      
+      setLegalReviews([...legalReviews, review]);
+      toast({
+        title: "Legal Review Requested",
+        description: "A legal professional will review your document.",
+      });
+    } catch (error) {
+      toast({
+        title: "Review Request Failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getTemplateById = (templateId: string) => {
+    return templates.find(t => t.id === templateId);
+  };
+
+  const getDocumentById = (documentId: string) => {
+    return generatedDocs.find(d => d.id === documentId);
+  };
+
+  const getSignatureRequestsByDocument = (documentId: string) => {
+    return signatureRequests.filter(sr => sr.documentId === documentId);
+  };
+
+  const getVersionsByDocument = (documentId: string) => {
+    return versions.filter(v => v.documentId === documentId);
+  };
+
+  const getLegalReviewByDocument = (documentId: string) => {
+    return legalReviews.find(lr => lr.documentId === documentId);
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Document Templates</h1>
-        <p className="text-muted-foreground">Professional legal document templates with e-signature and compliance tools</p>
+        <h1 className="text-3xl font-bold mb-2">Document Templates & E-Signatures</h1>
+        <p className="text-muted-foreground">Generate, sign, and manage legal documents</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="documents">My Documents</TabsTrigger>
-          <TabsTrigger value="signatures">E-Signatures</TabsTrigger>
-          <TabsTrigger value="compliance">Compliance</TabsTrigger>
-          <TabsTrigger value="reviews">Legal Reviews</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+      {!isAuthenticated ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Sign In Required</h3>
+            <p className="text-muted-foreground mb-4">Please sign in to access document services.</p>
+            <Button onClick={() => window.location.href = '/auth'}>Sign In</Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="generate">Generate Document</TabsTrigger>
+            <TabsTrigger value="documents">My Documents</TabsTrigger>
+            <TabsTrigger value="signatures">Signatures</TabsTrigger>
+            <TabsTrigger value="compliance">Compliance</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="templates" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2" />
-                  Document Template Library
-                </CardTitle>
-                <CardDescription>Browse and use professional legal document templates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div>
-                    <Label htmlFor="category-filter">Category</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Categories" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {templateCategories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category.charAt(0).toUpperCase() + category.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="jurisdiction-filter">Jurisdiction</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Jurisdictions" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Jurisdictions</SelectItem>
-                        {jurisdictions.map((jurisdiction) => (
-                          <SelectItem key={jurisdiction} value={jurisdiction}>
-                            {jurisdiction}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="search">Search Templates</Label>
-                    <Input placeholder="Search by name or keyword..." />
-                  </div>
-                </div>
-
-                {/* Template Grid */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {mockDocumentTemplates.map((template) => (
-                    <Card key={template.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg">{template.name}</CardTitle>
-                            <CardDescription className="line-clamp-2">
-                              {template.description}
-                            </CardDescription>
-                          </div>
-                          {template.requiresLegalReview && (
-                            <Shield className="h-5 w-5 text-blue-500" />
-                          )}
+          <TabsContent value="templates" className="mt-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {loading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <Card key={index} className="animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-48 bg-muted rounded mb-4"></div>
+                      <div className="h-4 bg-muted rounded mb-2"></div>
+                      <div className="h-3 bg-muted rounded mb-4"></div>
+                      <div className="flex justify-between">
+                        <div className="h-8 bg-muted rounded w-16"></div>
+                        <div className="h-8 bg-muted rounded w-16"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : templates.length > 0 ? (
+                templates.map((template) => (
+                  <Card key={template.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="font-semibold text-lg">{template.name}</h4>
+                          <p className="text-sm text-muted-foreground">{template.description}</p>
                         </div>
+                        <Badge variant={template.isActive ? "default" : "secondary"}>
+                          {template.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Category:</span>
+                          <span className="ml-2 font-medium">{template.category}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Type:</span>
+                          <span className="ml-2 font-medium">{template.type}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Language:</span>
+                          <span className="ml-2 font-medium">{template.language}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Version:</span>
+                          <span className="ml-2 font-medium">{template.version}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center space-x-2">
+                          <input type="checkbox" checked={template.isCustomizable} readOnly />
+                          <span className="text-sm">Customizable</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input type="checkbox" checked={template.requiresLegalReview} readOnly />
+                          <span className="text-sm">Legal Review Required</span>
+                        </div>
+                      </div>
+
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setSelectedTemplate(template.id);
+                          setActiveTab('generate');
+                        }}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Use Template
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card className="col-span-full">
+                  <CardContent className="py-8 text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Templates Available</h3>
+                    <p className="text-muted-foreground">Contact support to access document templates.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="generate" className="mt-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="h-5 w-5 mr-2" />
+                    Document Generation
+                  </CardTitle>
+                  <CardDescription>Fill in the details to generate your document</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={(e) => { e.preventDefault(); generateDocument(); }} className="space-y-4">
+                    <div>
+                      <Label htmlFor="template-select">Select Template</Label>
+                      <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                        <SelectTrigger id="template-select">
+                          <SelectValue placeholder="Select a template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {templates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedTemplate && (
+                      <>
+                        <div className="space-y-4">
+                          <h4 className="font-semibold">Document Variables</h4>
+                          {getTemplateById(selectedTemplate)?.variables.map((variable) => (
+                            <div key={variable.id}>
+                              <Label htmlFor={variable.id}>{variable.label}</Label>
+                              {variable.type === 'text' && (
+                                <Input
+                                  id={variable.id}
+                                  type="text"
+                                  value={templateForm[variable.id] || ''}
+                                  onChange={(e) => setTemplateForm({...templateForm, [variable.id]: e.target.value})}
+                                  placeholder={variable.label}
+                                  required={variable.required}
+                                />
+                              )}
+                              {variable.type === 'number' && (
+                                <Input
+                                  id={variable.id}
+                                  type="number"
+                                  value={templateForm[variable.id] || ''}
+                                  onChange={(e) => setTemplateForm({...templateForm, [variable.id]: parseFloat(e.target.value)})}
+                                  placeholder={variable.label}
+                                  required={variable.required}
+                                />
+                              )}
+                              {variable.type === 'date' && (
+                                <Input
+                                  id={variable.id}
+                                  type="date"
+                                  value={templateForm[variable.id] || ''}
+                                  onChange={(e) => setTemplateForm({...templateForm, [variable.id]: e.target.value})}
+                                  required={variable.required}
+                                />
+                              )}
+                              {variable.type === 'select' && (
+                                <Select
+                                  value={templateForm[variable.id] || ''}
+                                  onValueChange={(value) => setTemplateForm({...templateForm, [variable.id]: value})}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder={variable.label} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {variable.validation?.options?.map((option) => (
+                                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              {variable.type === 'boolean' && (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={templateForm[variable.id] || false}
+                                    onChange={(e) => setTemplateForm({...templateForm, [variable.id]: e.target.checked})}
+                                  />
+                                  <Label>{variable.label}</Label>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="space-y-4">
+                          <h4 className="font-semibold">Parties</h4>
+                          {parties.map((party, index) => (
+                            <div key={index} className="grid grid-cols-3 gap-2">
+                              <Input
+                                placeholder="Name"
+                                value={party.name}
+                                onChange={(e) => {
+                                  const newParties = [...parties];
+                                  newParties[index].name = e.target.value;
+                                  setParties(newParties);
+                                }}
+                              />
+                              <Input
+                                placeholder="Email"
+                                value={party.email}
+                                onChange={(e) => {
+                                  const newParties = [...parties];
+                                  newParties[index].email = e.target.value;
+                                  setParties(newParties);
+                                }}
+                              />
+                              <Select
+                                value={party.role}
+                                onValueChange={(value) => {
+                                  const newParties = [...parties];
+                                  newParties[index].role = value;
+                                  setParties(newParties);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="tenant">Tenant</SelectItem>
+                                  <SelectItem value="landlord">Landlord</SelectItem>
+                                  <SelectItem value="buyer">Buyer</SelectItem>
+                                  <SelectItem value="seller">Seller</SelectItem>
+                                  <SelectItem value="agent">Agent</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setParties([...parties, { name: '', email: '', role: 'tenant' }])}
+                          >
+                            Add Party
+                          </Button>
+                        </div>
+
+                        <Button type="submit" className="w-full" disabled={loading}>
+                          {loading ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Generate Document
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </form>
+                </CardContent>
+              </Card>
+
+              {selectedTemplate && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Template Preview</CardTitle>
+                    <CardDescription>Preview of your generated document</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-muted rounded-lg">
+                        <h4 className="font-semibold mb-2">{getTemplateById(selectedTemplate)?.name}</h4>
+                        <p className="text-sm text-muted-foreground">{getTemplateById(selectedTemplate)?.description}</p>
+                      </div>
+                      
+                      <div className="text-sm space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Variables:</span>
+                          <span>{getTemplateById(selectedTemplate)?.variables.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Customizable:</span>
+                          <span>{getTemplateById(selectedTemplate)?.isCustomizable ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Legal Review:</span>
+                          <span>{getTemplateById(selectedTemplate)?.requiresLegalReview ? 'Required' : 'Optional'}</span>
+                        </div>
+                      </div>
+
+                      {getTemplateById(selectedTemplate)?.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {getTemplateById(selectedTemplate)?.tags.map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">{tag}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-6">
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">My Documents</h3>
+                <div className="text-sm text-muted-foreground">
+                  {generatedDocs.length} documents • {generatedDocs.filter(d => d.status === 'signed').length} signed
+                </div>
+              </div>
+
+              {generatedDocs.length > 0 ? (
+                <div className="space-y-4">
+                  {generatedDocs.map((document) => {
+                    const signatureRequests = getSignatureRequestsByDocument(document.id);
+                    const versions = getVersionsByDocument(document.id);
+                    const legalReview = getLegalReviewByDocument(document.id);
+                    
+                    return (
+                      <Card key={document.id}>
+                        <CardContent className="p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-lg">{document.title}</h4>
+                              <p className="text-sm text-muted-foreground mb-2">{document.parties.map(p => p.name).join(' • ')}</p>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">Template:</span>
+                                  <span className="ml-2 font-medium">{getTemplateById(document.templateId)?.name}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Status:</span>
+                                  <Badge variant={
+                                    document.status === 'signed' ? 'default' :
+                                    document.status === 'draft' ? 'secondary' :
+                                    document.status === 'pending' ? 'outline' : 'destructive'
+                                  }>
+                                    {document.status}
+                                  </Badge>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Version:</span>
+                                  <span className="ml-2 font-medium">{document.version}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Created:</span>
+                                  <span className="ml-2 font-medium">{new Date(document.createdAt).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+
+                              {document.attachments.length > 0 && (
+                                <div className="mb-4">
+                                  <span className="text-sm text-muted-foreground">Attachments:</span>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {document.attachments.map((attachment, index) => (
+                                      <Badge key={index} variant="outline" className="text-xs">
+                                        {attachment.name}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-muted-foreground">Parties: {document.parties.length}</div>
+                              <div className="text-sm text-muted-foreground">Signatures: {signatureRequests.filter(sr => sr.status === 'signed').length}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => downloadDocument(document.id)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </Button>
+                            {document.status === 'draft' && (
+                              <Button variant="outline" size="sm" onClick={() => requestSignature(document.id)}>
+                                <FileSignature className="h-4 w-4 mr-2" />
+                                Request Signatures
+                              </Button>
+                            )}
+                            {getTemplateById(document.templateId)?.requiresLegalReview && !legalReview && (
+                              <Button variant="outline" size="sm" onClick={() => requestLegalReview(document.id)}>
+                                <Shield className="h-4 w-4 mr-2" />
+                                Legal Review
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Documents</h3>
+                    <p className="text-muted-foreground mb-4">Generate your first document to get started.</p>
+                    <Button onClick={() => setActiveTab('templates')}>Browse Templates</Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="signatures" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Signature Requests</h3>
+              
+              {signatureRequests.length > 0 ? (
+                <div className="space-y-4">
+                  {signatureRequests.map((request) => {
+                    const document = getDocumentById(request.documentId);
+                    
+                    return (
+                      <Card key={request.id}>
+                        <CardContent className="p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h4 className="font-semibold">{document?.title}</h4>
+                              <p className="text-sm text-muted-foreground">Document: {document?.templateId}</p>
+                            </div>
+                            <Badge variant={
+                              request.status === 'signed' ? 'default' :
+                              request.status === 'pending' ? 'secondary' :
+                              request.status === 'viewed' ? 'outline' : 'destructive'
+                            }>
+                              {request.status}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Party:</span>
+                              <span className="ml-2 font-medium">{document?.parties.find(p => p.email === request.partyId)?.name}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Sent:</span>
+                              <span className="ml-2 font-medium">{new Date(request.sentAt).toLocaleDateString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Expires:</span>
+                              <span className="ml-2 font-medium">{new Date(request.expiresAt).toLocaleDateString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Reminder Count:</span>
+                              <span className="ml-2 font-medium">{request.reminderCount}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Document
+                            </Button>
+                            {request.status === 'pending' && (
+                              <Button size="sm">
+                                <FileSignature className="h-4 w-4 mr-2" />
+                                Send Reminder
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <FileSignature className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Signature Requests</h3>
+                    <p className="text-muted-foreground">Request signatures on your documents to see them here.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="compliance" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Document Compliance</h3>
+              
+              {compliance.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {compliance.map((comp) => (
+                    <Card key={comp.documentId}>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Compliance Check</CardTitle>
+                        <CardDescription>Document: {comp.documentId}</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-3">
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Version</span>
-                            <Badge variant="outline">{template.version}</Badge>
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={
+                              comp.status === 'compliant' ? 'default' :
+                              comp.status === 'warnings' ? 'secondary' : 'destructive'
+                            }>
+                              {comp.status}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">Checked: {new Date(comp.checkedAt).toLocaleDateString()}</span>
                           </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Jurisdiction</span>
-                            <span>{template.jurisdiction}</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-muted-foreground">Used</span>
-                            <span>{template.usageCount} times</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {template.tags.slice(0, 3).map((tag, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
+
+                          <div className="space-y-2">
+                            <h4 className="font-medium">Requirements</h4>
+                            {comp.requirements.map((req, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                                <div>
+                                  <span className="text-sm font-medium">{req.name}</span>
+                                  <p className="text-xs text-muted-foreground">{req.description}</p>
+                                </div>
+                                <Badge variant={req.status === 'met' ? 'default' : 'destructive'}>
+                                  {req.status}
+                                </Badge>
+                              </div>
                             ))}
                           </div>
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm" className="flex-1">
-                              <Eye className="h-4 w-4 mr-1" />
-                              Preview
-                            </Button>
-                            <Button size="sm" className="flex-1">
-                              <PenTool className="h-4 w-4 mr-1" />
-                              Use Template
-                            </Button>
-                          </div>
+
+                          {comp.recommendedActions.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="font-medium">Recommended Actions</h4>
+                              <div className="space-y-1">
+                                {comp.recommendedActions.map((action, index) => (
+                                  <div key={index} className="flex items-center space-x-2 text-sm">
+                                    <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                    <span>{action}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="documents" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2" />
-                  Generated Documents
-                </CardTitle>
-                <CardDescription>Documents created from templates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="mb-4">
-                  <PenTool className="h-4 w-4 mr-2" />
-                  Create New Document
-                </Button>
-
-                <div className="space-y-4">
-                  {mockGeneratedDocuments.map((document) => {
-                    const template = mockDocumentTemplates.find(t => t.id === document.templateId);
-                    return (
-                      <Card key={document.id}>
-                        <CardHeader>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <CardTitle className="text-lg">{document.title}</CardTitle>
-                              <CardDescription>
-                                Based on: {template?.name} • Version {document.version}
-                              </CardDescription>
-                            </div>
-                            <Badge className={getStatusColor(document.status)}>
-                              {document.status}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Created</p>
-                              <p className="font-medium">
-                                {new Date(document.createdAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Last Updated</p>
-                              <p className="font-medium">
-                                {new Date(document.updatedAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Parties</p>
-                              <p className="font-medium">{document.parties.length}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Attachments</p>
-                              <p className="font-medium">{document.attachments.length}</p>
-                            </div>
-                          </div>
-
-                          {document.signedAt && (
-                            <div className="mb-4 p-3 bg-green-50 rounded-lg">
-                              <div className="flex items-center space-x-2 text-green-700">
-                                <CheckCircle className="h-4 w-4" />
-                                <span className="text-sm font-medium">
-                                  Signed on {new Date(document.signedAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Download className="h-4 w-4 mr-1" />
-                              Download
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Share className="h-4 w-4 mr-1" />
-                              Share
-                            </Button>
-                            <Button size="sm">
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="signatures" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <PenTool className="h-5 w-5 mr-2" />
-                  E-Signature Requests
-                </CardTitle>
-                <CardDescription>Track electronic signature status and reminders</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockESignatureRequests.map((request) => {
-                    const document = mockGeneratedDocuments.find(d => d.id === request.documentId);
-                    const party = document?.parties.find(p => p.id === request.partyId);
-
-                    return (
-                      <Card key={request.id}>
-                        <CardContent className="pt-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <h4 className="font-semibold">{document?.title}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Sent to: {party?.name} ({party?.email})
-                              </p>
-                            </div>
-                            <Badge variant={
-                              request.status === 'signed' ? 'default' :
-                              request.status === 'viewed' ? 'secondary' :
-                              request.status === 'pending' ? 'outline' : 'destructive'
-                            }>
-                              {request.status.replace('_', ' ')}
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Sent</p>
-                              <p className="font-medium">
-                                {new Date(request.sentAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Expires</p>
-                              <p className="font-medium">
-                                {new Date(request.expiresAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Reminders</p>
-                              <p className="font-medium">{request.reminderCount}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Status</p>
-                              <div className="flex items-center space-x-1">
-                                {request.status === 'signed' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                                {request.status === 'expired' && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                                <span className="text-sm capitalize">{request.status.replace('_', ' ')}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">View Document</Button>
-                            <Button variant="outline" size="sm">Send Reminder</Button>
-                            {request.status === 'pending' && (
-                              <Button size="sm">Resend Request</Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="compliance" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Shield className="h-5 w-5 mr-2" />
-                  Document Compliance
-                </CardTitle>
-                <CardDescription>Legal compliance checking and requirements tracking</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {mockDocumentCompliance.map((compliance) => {
-                    const document = mockGeneratedDocuments.find(d => d.id === compliance.documentId);
-                    return (
-                      <Card key={compliance.documentId}>
-                        <CardHeader>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <CardTitle className="text-lg">{document?.title}</CardTitle>
-                              <CardDescription>Jurisdiction: {compliance.jurisdiction}</CardDescription>
-                            </div>
-                            <Badge className={getComplianceColor(compliance.status)}>
-                              {compliance.status.replace('_', ' ')}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div>
-                              <p className="text-sm text-muted-foreground mb-2">Compliance Requirements</p>
-                              <div className="space-y-2">
-                                {compliance.requirements.map((req) => (
-                                  <div key={req.id} className="flex justify-between items-center p-2 border rounded">
-                                    <div className="flex-1">
-                                      <p className="text-sm font-medium">{req.name}</p>
-                                      <p className="text-xs text-muted-foreground">{req.description}</p>
-                                    </div>
-                                    <Badge variant={req.status === 'met' ? 'default' : 'destructive'}>
-                                      {req.status.replace('_', ' ')}
-                                    </Badge>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {compliance.notes && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">Notes</p>
-                                <p className="text-sm">{compliance.notes}</p>
-                              </div>
-                            )}
-
-                            <div className="flex justify-between items-center text-sm text-muted-foreground">
-                              <span>Checked by: Legal Team</span>
-                              <span>Last checked: {new Date(compliance.checkedAt).toLocaleDateString()}</span>
-                            </div>
-
-                            <div className="flex space-x-2">
-                              <Button variant="outline" size="sm">View Report</Button>
-                              <Button variant="outline" size="sm">Re-check</Button>
-                              {compliance.status !== 'compliant' && (
-                                <Button size="sm">Fix Issues</Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="reviews" className="mt-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Star className="h-5 w-5 mr-2" />
-                  Legal Reviews
-                </CardTitle>
-                <CardDescription>Professional legal review and risk assessment</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {mockLegalReviews.map((review) => {
-                    const document = mockGeneratedDocuments.find(d => d.id === review.documentId);
-                    return (
-                      <Card key={review.id}>
-                        <CardHeader>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <CardTitle className="text-lg">{document?.title}</CardTitle>
-                              <CardDescription>
-                                Requested: {new Date(review.requestedAt).toLocaleDateString()}
-                                {review.completedAt && (
-                                  <span className="ml-2">
-                                    • Completed: {new Date(review.completedAt).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </CardDescription>
-                            </div>
-                            <div className="flex space-x-2">
-                              <Badge variant={
-                                review.status === 'approved' ? 'default' :
-                                review.status === 'rejected' ? 'destructive' :
-                                review.status === 'in_progress' ? 'secondary' : 'outline'
-                              }>
-                                {review.status.replace('_', ' ')}
-                              </Badge>
-                              <Badge className={getRiskColor(review.riskLevel)}>
-                                {review.riskLevel} risk
-                              </Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Overall Assessment</p>
-                              <p className="text-sm">{review.overallAssessment}</p>
-                            </div>
-
-                            {review.comments.length > 0 && (
-                              <div>
-                                <p className="text-sm text-muted-foreground mb-2">Review Comments</p>
-                                <div className="space-y-2">
-                                  {review.comments.map((comment) => (
-                                    <div key={comment.id} className="p-3 border rounded">
-                                      <div className="flex justify-between items-start mb-1">
-                                        <p className="text-sm font-medium">{comment.section}</p>
-                                        <Badge variant={
-                                          comment.severity === 'error' ? 'destructive' :
-                                          comment.severity === 'warning' ? 'secondary' : 'outline'
-                                        }>
-                                          {comment.severity}
-                                        </Badge>
-                                      </div>
-                                      <p className="text-sm">{comment.comment}</p>
-                                      {comment.suggestedChange && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          Suggested: {comment.suggestedChange}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {review.recommendedChanges.length > 0 && (
-                              <div>
-                                <p className="text-sm text-muted-foreground mb-2">Recommended Changes</p>
-                                <ul className="text-sm space-y-1">
-                                  {review.recommendedChanges.map((change, index) => (
-                                    <li key={index} className="flex items-start space-x-2">
-                                      <span className="text-muted-foreground">•</span>
-                                      <span>{change}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            <div className="flex space-x-2">
-                              <Button variant="outline" size="sm">View Full Report</Button>
-                              <Button variant="outline" size="sm">Download PDF</Button>
-                              {review.status === 'requires_revision' && (
-                                <Button size="sm">Request Revision</Button>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="mt-6">
-          {mockDocumentAnalytics && (
-            <div className="grid gap-6">
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              ) : (
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Documents Created</CardTitle>
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{mockDocumentAnalytics.metrics.documentsCreated}</div>
-                    <p className="text-xs text-muted-foreground">
-                      +{mockDocumentAnalytics.trends.documentVolume}% from last period
-                    </p>
+                  <CardContent className="py-8 text-center">
+                    <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Compliance Checks</h3>
+                    <p className="text-muted-foreground">Compliance checks will appear here after document generation.</p>
                   </CardContent>
                 </Card>
+              )}
+            </div>
+          </TabsContent>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Signature Rate</CardTitle>
-                    <PenTool className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{mockDocumentAnalytics.metrics.signatureRate}%</div>
-                    <Progress value={mockDocumentAnalytics.metrics.signatureRate} className="mt-2" />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Avg Completion Time</CardTitle>
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{mockDocumentAnalytics.metrics.averageCompletionTime}h</div>
-                    <p className="text-xs text-muted-foreground">
-                      {mockDocumentAnalytics.trends.signatureSpeed > 0 ? '+' : ''}{mockDocumentAnalytics.trends.signatureSpeed}% change
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Compliance Issues</CardTitle>
-                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{mockDocumentAnalytics.metrics.complianceIssues}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Legal review requests: {mockDocumentAnalytics.metrics.legalReviewRequests}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Template Usage</CardTitle>
-                    <CardDescription>Most popular document templates</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {mockDocumentAnalytics.metrics.templateUsage.map((usage, index) => {
-                        const template = mockDocumentTemplates.find(t => t.id === usage.templateId);
-                        return (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{template?.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {usage.usageCount} uses • {usage.completionRate}% completion
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="w-20 bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-blue-600 h-2 rounded-full"
-                                  style={{ width: `${usage.completionRate}%` }}
-                                ></div>
-                              </div>
-                            </div>
+          <TabsContent value="analytics" className="mt-6">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Document Analytics</h3>
+              
+              {analytics ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Document Metrics</CardTitle>
+                      <CardDescription>Overall document statistics</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-4 bg-blue-50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-700">{analytics.metrics.documentsCreated}</div>
+                            <div className="text-sm text-blue-700">Documents Created</div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Common Customizations</CardTitle>
-                    <CardDescription>Frequently modified template variables</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {mockDocumentAnalytics.metrics.commonCustomizations.map((customization, index) => (
-                        <div key={index} className="flex justify-between items-center">
-                          <span className="text-sm capitalize">{customization.variable.replace('_', ' ')}</span>
-                          <div className="flex items-center space-x-2">
-                            <div className="w-16 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-green-600 h-2 rounded-full"
-                                style={{ width: `${(customization.frequency / Math.max(...mockDocumentAnalytics.metrics.commonCustomizations.map(c => c.frequency))) * 100}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm font-medium">{customization.frequency}</span>
+                          <div className="text-center p-4 bg-green-50 rounded-lg">
+                            <div className="text-2xl font-bold text-green-700">{analytics.metrics.documentsSigned}</div>
+                            <div className="text-sm text-green-700">Documents Signed</div>
+                          </div>
+                          <div className="text-center p-4 bg-purple-50 rounded-lg">
+                            <div className="text-2xl font-bold text-purple-700">{analytics.metrics.signatureRate}%</div>
+                            <div className="text-sm text-purple-700">Signature Rate</div>
+                          </div>
+                          <div className="text-center p-4 bg-orange-50 rounded-lg">
+                            <div className="text-2xl font-bold text-orange-700">{analytics.metrics.averageCompletionTime}h</div>
+                            <div className="text-sm text-orange-700">Avg Completion Time</div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Template Usage</CardTitle>
+                      <CardDescription>Most popular templates</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {analytics.metrics.templateUsage.map((template, index) => (
+                          <div key={index} className="flex justify-between items-center p-3 bg-muted rounded">
+                            <div>
+                              <span className="font-medium">{template.templateId}</span>
+                              <p className="text-sm text-muted-foreground">{template.usageCount} uses</p>
+                            </div>
+                            <Badge variant="outline" className="text-xs">{template.completionRate}%</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Common Customizations</CardTitle>
+                      <CardDescription>Frequently modified variables</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {analytics.metrics.commonCustomizations.map((customization, index) => (
+                          <div key={index} className="flex justify-between items-center p-3 bg-muted rounded">
+                            <span className="font-medium">{customization.variable}</span>
+                            <span className="text-sm text-muted-foreground">{customization.frequency} times</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Compliance Issues</CardTitle>
+                      <CardDescription>Common compliance problems</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {analytics.complianceIssues.map((issue, index) => (
+                          <div key={index} className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded">
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                            <span className="text-sm">{issue}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Legal Review Requests</CardTitle>
+                      <CardDescription>Documents requiring legal review</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {analytics.legalReviewRequests.map((request, index) => (
+                          <div key={index} className="flex justify-between items-center p-3 bg-yellow-50 border border-yellow-200 rounded">
+                            <span className="text-sm">{request}</span>
+                            <Badge variant="outline" className="text-xs">Review Needed</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Trends</CardTitle>
+                      <CardDescription>Document usage trends</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Document Volume</span>
+                          <Badge variant={analytics.trends.documentVolume > 0 ? 'default' : 'destructive'}>
+                            {analytics.trends.documentVolume > 0 ? '+' : ''}{analytics.trends.documentVolume}%
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Completion Rate</span>
+                          <Badge variant={analytics.trends.completionRate > 0 ? 'default' : 'destructive'}>
+                            {analytics.trends.completionRate > 0 ? '+' : ''}{analytics.trends.completionRate}%
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Signature Speed</span>
+                          <Badge variant={analytics.trends.signatureSpeed > 0 ? 'default' : 'destructive'}>
+                            {analytics.trends.signatureSpeed > 0 ? '+' : ''}{analytics.trends.signatureSpeed}%
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <FileCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Analytics Data</h3>
+                    <p className="text-muted-foreground">Analytics will be available after generating documents.</p>
                   </CardContent>
                 </Card>
-              </div>
+              )}
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 };

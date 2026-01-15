@@ -1,73 +1,166 @@
-# Welcome to your Lovable project
+# Agently - Comprehensive Real Estate Platform
 
-## Project info
+Agently is a modern, full-featured real estate platform built for the Nigerian market, providing a complete ecosystem for property rentals, roommate matching, vendor services, insurance, mortgage calculations, and more.
 
-**URL**: https://lovable.dev/projects/368249bd-2bc9-45f1-a12a-89eb2da38c75
+## 🚀 Features
 
-## How can I edit this code?
+### Core Platform
+- **Property Listings**: Advanced search and filtering for rental properties
+- **User Authentication**: Secure login/registration with role-based access
+- **Dashboard**: Personalized dashboard for tenants, landlords, and managers
+- **Booking System**: Seamless property booking and management
 
-There are several ways of editing your application.
+### Advanced Modules
+- **Roommate Matching**: AI-powered roommate compatibility matching
+- **Vendor Marketplace**: Connect with verified service providers
+- **Insurance Integration**: Comprehensive property insurance management
+- **Mortgage Calculator**: Advanced mortgage and affordability calculations
+- **Virtual Tours**: 360-degree property tours and VR support
+- **Tenant Portal**: Complete tenant management interface
+- **Landlord Portal**: Property management tools for landlords
+- **Property Valuation**: Automated valuation and market analysis
+- **Neighborhood Insights**: Safety scores, school ratings, amenities mapping
+- **Auction System**: Live property auctions with bidding
+- **Agent CRM**: Lead management and client tracking
+- **Maintenance Scheduling**: Automated maintenance coordination
+- **Document Templates**: Legal document generation and management
+- **Admin Panel**: Comprehensive system administration
 
-**Use Lovable**
+### Technical Features
+- **Real-time Messaging**: Instant communication between users
+- **Push Notifications**: Mobile and web notifications
+- **Multi-language Support**: Internationalization ready
+- **Mobile Responsive**: Optimized for all devices
+- **Offline Support**: PWA capabilities
+- **Performance Optimized**: Code splitting and lazy loading
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/368249bd-2bc9-45f1-a12a-89eb2da38c75) and start prompting.
+## 🛠️ Technology Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Frontend**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **State Management**: Zustand (planned)
+- **Routing**: React Router v6
+- **API**: RESTful API with React Query
+- **Forms**: React Hook Form with Zod validation
+- **Icons**: Lucide React
+- **Charts**: Recharts
+- **Date Handling**: date-fns
 
-**Use your preferred IDE**
+## 📦 Installation
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd agently-home-hub
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-Follow these steps:
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+4. **Build for production**
+   ```bash
+   npm run build
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🏗️ Project Structure
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   └── ...             # Custom components
+├── pages/              # Page components
+├── hooks/              # Custom React hooks
+├── lib/                # Utilities and services
+│   ├── api.ts          # API service layer
+│   ├── auth.ts         # Authentication service
+│   ├── mockData.ts     # Mock data for development
+│   └── utils.ts        # Utility functions
+├── types/              # TypeScript type definitions
+└── assets/             # Static assets
 ```
 
-**Edit a file directly in GitHub**
+## 🔧 Development
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Available Scripts
 
-**Use GitHub Codespaces**
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build for development
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Environment Variables
 
-## What technologies are used for this project?
+Create a `.env.local` file in the root directory:
 
-This project is built with:
+```env
+VITE_API_URL=http://localhost:3001/api
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🚀 Deployment
 
-## How can I deploy this project?
+The application is configured for deployment on Vercel, Netlify, or any static hosting service.
 
-Simply open [Lovable](https://lovable.dev/projects/368249bd-2bc9-45f1-a12a-89eb2da38c75) and click on Share -> Publish.
+### Build Optimization
 
-## Can I connect a custom domain to my Lovable project?
+- Code splitting for better performance
+- Image optimization
+- CSS minification
+- Service worker for caching
 
-Yes, you can!
+## 📱 Mobile Support
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+The platform is fully responsive and includes:
+- Touch-friendly interfaces
+- Mobile-optimized navigation
+- PWA capabilities for offline use
+- Push notifications
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🔒 Security
+
+- JWT-based authentication
+- Input validation with Zod
+- XSS protection
+- CSRF protection
+- Secure API endpoints
+
+## 🧪 Testing
+
+The platform includes comprehensive testing:
+- Unit tests with Jest
+- Integration tests
+- E2E tests with Playwright
+- Accessibility testing
+- Performance testing
+
+## 📈 Performance
+
+- Lazy loading of components
+- Image optimization
+- Bundle analysis and optimization
+- CDN-ready asset management
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 📞 Support
+
+For support or questions, please contact the development team or create an issue in the repository.
