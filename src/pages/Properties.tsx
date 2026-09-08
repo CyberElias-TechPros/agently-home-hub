@@ -1,328 +1,333 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Input } from '@/components/ui/input';
+import { useMemo, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent } from '@/components/ui/card';
-import { Search, SlidersHorizontal, Loader2, MapPin, Bed, Bath, Square, Calendar, Star } from 'lucide-react';
-import PropertyCard from '@/components/PropertyCard';
-import { apiService } from '@/lib/api';
-import { Property } from '@/types';
-import { useToast } from '@/hooks/use-toast';
-import AdContainer from '@/components/AdContainer';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { PropertyGrid } from '@/components/PropertyGrid';
+import { lazy, Suspense } from 'react';
 
-interface SearchFilters {
-  searchTerm: string;
-  propertyType: string;
-  priceRange: [number, number];
-  bedrooms: number[];
-  bathrooms: number[];
-  amenities: string[];
-  furnished: boolean | null;
-  petFriendly: boolean | null;
-  sortBy: string;
-  sortOrder: 'asc' | 'desc';
-}
+// Leaflet is ~90 kB gzipped; it is only worth downloading once the user
+// actually asks for the map view.
+const PropertyMap = lazy(() => import('@/components/PropertyMap'));
+import { useSEO } from '@/lib/seo/useSEO';
+import { parseMoney } from '@/lib/format';
+import { propertiesApi } from '@/lib/api';
+import type { PropertyType } from '@/lib/api/types';
 
+const PROPERTY_TYPES: PropertyType[] = ['apartment', 'house', 'condo', 'townhouse', 'studio', 'room'];
+const BEDROOM_OPTIONS = [1, 2, 3, 4, 5];
+const PER_PAGE = 12;
+
+const SORTS = [
+  { value: 'relevance', label: 'Most relevant' },
+  { value: 'newest', label: 'Newest first' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+];
+
+/**
+ * Search results.
+ *
+ * All filter state lives in the URL query string. That makes results shareable
+ * and bookmarkable, lets the browser back button work, and means crawlers can
+ * reach filtered listings instead of only ever seeing an empty client-rendered
+ * page.
+ */
 export default function Properties() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [view, setView] = useState<'list' | 'map'>('list');
 
-  const [filters, setFilters] = useState<SearchFilters>({
-    searchTerm: '',
-    propertyType: 'all',
-    priceRange: [0, 5000],
-    bedrooms: [],
-    bathrooms: [],
-    amenities: [],
-    furnished: null,
-    petFriendly: null,
-    sortBy: 'price',
-    sortOrder: 'asc'
+  const q = searchParams.get('q') ?? '';
+  const city = searchParams.get('city') ?? '';
+  const type = searchParams.get('type') ?? '';
+  const bedrooms = searchParams.get('bedrooms') ?? '';
+  const maxPrice = searchParams.get('max_price') ?? '';
+  const sort = searchParams.get('sort') ?? 'relevance';
+  const page = Number.parseInt(searchParams.get('page') ?? '1', 10) || 1;
+
+  useSEO({
+    title: city ? `Properties for rent in ${city}` : 'Properties for rent in Nigeria',
+    description: city
+      ? `Browse ${type || ''} properties for rent in ${city}, Nigeria. Filter by bedrooms, budget and amenities on Agently.`
+      : 'Search verified rental properties across Nigeria. Filter by city, property type, bedrooms, budget and amenities.',
+    canonicalPath: `/properties${searchParams.toString() ? `?${searchParams.toString()}` : ''}`,
   });
 
-  const loadProperties = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await apiService.getProperties();
-      setProperties(data);
-    } catch (error) {
-      toast({
-        title: "Error loading properties",
-        description: "Failed to load properties. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  const update = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === '' || value === 'any') next.delete(key);
+      else next.set(key, value);
     }
-  }, [toast]);
-
-  useEffect(() => {
-    loadProperties();
-  }, [loadProperties]);
-
-  const filteredAndSortedProperties = useMemo(() => {
-    let filtered = properties.filter((property: Property) => {
-      // Search filter
-      const matchesSearch = !filters.searchTerm || 
-        property.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        property.location.city.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        property.location.state.toLowerCase().includes(filters.searchTerm.toLowerCase());
-
-      // Property type filter
-      const matchesType = filters.propertyType === 'all' || property.type === filters.propertyType;
-
-      // Price range filter
-      const matchesPrice = property.price >= filters.priceRange[0] && property.price <= filters.priceRange[1];
-
-      // Bedrooms filter
-      const matchesBedrooms = filters.bedrooms.length === 0 || filters.bedrooms.includes(property.bedrooms);
-
-      // Bathrooms filter
-      const matchesBathrooms = filters.bathrooms.length === 0 || 
-        filters.bathrooms.some(b => property.bathrooms >= b);
-
-      // Amenities filter
-      const matchesAmenities = filters.amenities.length === 0 || 
-        filters.amenities.every(amenity => property.amenities.includes(amenity));
-
-      // Furnished filter
-      const matchesFurnished = filters.furnished === null || 
-        (filters.furnished && property.amenities.includes('Furnished')) ||
-        (!filters.furnished && !property.amenities.includes('Furnished'));
-
-      // Pet friendly filter
-      const matchesPetFriendly = filters.petFriendly === null ||
-        (filters.petFriendly && property.amenities.includes('Pet-friendly')) ||
-        (!filters.petFriendly && !property.amenities.includes('Pet-friendly'));
-
-      return matchesSearch && matchesType && matchesPrice && matchesBedrooms && 
-             matchesBathrooms && matchesAmenities && matchesFurnished && matchesPetFriendly;
-    });
-
-    // Sort properties
-    const sorted = [...filtered].sort((a, b) => {
-      let aValue: number | string;
-      let bValue: number | string;
-
-      switch (filters.sortBy) {
-        case 'price':
-          aValue = a.price;
-          bValue = b.price;
-          break;
-        case 'bedrooms':
-          aValue = a.bedrooms;
-          bValue = b.bedrooms;
-          break;
-        case 'area':
-          aValue = a.area;
-          bValue = b.area;
-          break;
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        default:
-          aValue = a.price;
-          bValue = b.price;
-      }
-
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return filters.sortOrder === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-
-      return filters.sortOrder === 'asc' 
-        ? (aValue as number) - (bValue as number)
-        : (bValue as number) - (aValue as number);
-    });
-
-    return sorted;
-  }, [properties, filters]);
-
-  const updateFilter = (key: keyof SearchFilters, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    // Any filter change invalidates the current page offset.
+    if (!('page' in patch)) next.delete('page');
+    setSearchParams(next, { replace: false });
   };
 
-  const toggleBedroomFilter = (bedrooms: number) => {
-    setFilters(prev => ({
-      ...prev,
-      bedrooms: prev.bedrooms.includes(bedrooms)
-        ? prev.bedrooms.filter(b => b !== bedrooms)
-        : [...prev.bedrooms, bedrooms]
-    }));
-  };
+  const queryKey = useMemo(
+    () => ['properties', 'search', { q, city, type, bedrooms, maxPrice, sort, page }],
+    [q, city, type, bedrooms, maxPrice, sort, page]
+  );
 
-  const toggleBathroomFilter = (bathrooms: number) => {
-    setFilters(prev => ({
-      ...prev,
-      bathrooms: prev.bathrooms.includes(bathrooms)
-        ? prev.bathrooms.filter(b => b !== bathrooms)
-        : [...prev.bathrooms, bathrooms]
-    }));
-  };
+  const search = useQuery({
+    queryKey,
+    queryFn: () =>
+      propertiesApi
+        .list({
+          q: q || undefined,
+          city: city || undefined,
+          type: (type as PropertyType) || undefined,
+          bedrooms: bedrooms ? Number.parseInt(bedrooms, 10) : undefined,
+          max_price: maxPrice ? parseMoney(maxPrice) : undefined,
+          sort: sort as 'relevance' | 'newest' | 'price_asc' | 'price_desc',
+          page,
+          per_page: PER_PAGE,
+        })
+        .then((r) => r),
+    placeholderData: keepPreviousData,
+  });
 
-  const toggleAmenityFilter = (amenity: string) => {
-    setFilters(prev => ({
-      ...prev,
-      amenities: prev.amenities.includes(amenity)
-        ? prev.amenities.filter(a => a !== amenity)
-        : [...prev.amenities, amenity]
-    }));
-  };
+  const results = search.data?.data ?? [];
+  const meta = search.data?.pagination;
+  const totalPages = meta ? Math.max(1, Math.ceil(meta.total / meta.per_page)) : 1;
 
-  const clearFilters = () => {
-    setFilters({
-      searchTerm: '',
-      propertyType: 'all',
-      priceRange: [0, 5000],
-      bedrooms: [],
-      bathrooms: [],
-      amenities: [],
-      furnished: null,
-      petFriendly: null,
-      sortBy: 'price',
-      sortOrder: 'asc'
-    });
-  };
+  const activeFilters = [
+    city && { key: 'city', label: city },
+    type && { key: 'type', label: type },
+    bedrooms && { key: 'bedrooms', label: `${bedrooms}+ bed` },
+    maxPrice && { key: 'max_price', label: `max ₦${maxPrice}` },
+  ].filter(Boolean) as Array<{ key: string; label: string }>;
 
-  const activeFilterCount = [
-    filters.searchTerm,
-    filters.propertyType !== 'all',
-    filters.priceRange[0] > 0 || filters.priceRange[1] < 5000,
-    filters.bedrooms.length,
-    filters.bathrooms.length,
-    filters.amenities.length,
-    filters.furnished !== null,
-    filters.petFriendly !== null
-  ].filter(Boolean).length;
+  const clearAll = () => setSearchParams(new URLSearchParams(), { replace: false });
+
+  const filterControls = (
+    <div className="space-y-6">
+      <div>
+        <Label htmlFor="filter-city">City</Label>
+        <Input
+          id="filter-city"
+          placeholder="e.g. Lagos"
+          value={city}
+          onChange={(event) => update({ city: event.target.value })}
+          className="mt-1.5"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="filter-type">Property type</Label>
+        <Select value={type || 'any'} onValueChange={(value) => update({ type: value })}>
+          <SelectTrigger id="filter-type" className="mt-1.5">
+            <SelectValue placeholder="Any type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Any type</SelectItem>
+            {PROPERTY_TYPES.map((value) => (
+              <SelectItem key={value} value={value} className="capitalize">
+                {value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="filter-bedrooms">Bedrooms</Label>
+        <Select value={bedrooms || 'any'} onValueChange={(value) => update({ bedrooms: value })}>
+          <SelectTrigger id="filter-bedrooms" className="mt-1.5">
+            <SelectValue placeholder="Any" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Any</SelectItem>
+            {BEDROOM_OPTIONS.map((value) => (
+              <SelectItem key={value} value={String(value)}>
+                {value}+
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor="filter-price">Maximum yearly rent (₦)</Label>
+        <Input
+          id="filter-price"
+          inputMode="numeric"
+          placeholder="e.g. 3000000"
+          value={maxPrice}
+          onChange={(event) => update({ max_price: event.target.value.replace(/[^\d]/g, '') })}
+          className="mt-1.5"
+        />
+      </div>
+
+      {activeFilters.length > 0 && (
+        <Button variant="outline" size="sm" className="w-full" onClick={clearAll}>
+          <X className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+          Clear all filters
+        </Button>
+      )}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen py-8 pb-20 md:pb-8">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Browse Properties</h1>
-          <p className="text-muted-foreground">
-            {loading ? 'Loading properties...' : `Showing ${filteredAndSortedProperties.length} of ${properties.length} properties`}
-          </p>
+    <div className="container mx-auto px-4 py-8">
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight">Properties for rent</h1>
+        <p className="mt-1 text-muted-foreground">
+          {meta ? `${meta.total.toLocaleString('en-NG')} matching ${meta.total === 1 ? 'property' : 'properties'}` : 'Searching…'}
+        </p>
+      </header>
+
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+        <Input
+          type="search"
+          aria-label="Search properties"
+          placeholder="Search by title, address or neighbourhood…"
+          value={q}
+          onChange={(event) => update({ q: event.target.value })}
+          className="flex-1"
+        />
+        <Select value={sort} onValueChange={(value) => update({ sort: value })}>
+          <SelectTrigger className="sm:w-56" aria-label="Sort results">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORTS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="hidden items-center rounded-md border p-0.5 sm:flex" role="group" aria-label="Results view">
+          <Button
+            size="sm"
+            variant={view === 'list' ? 'secondary' : 'ghost'}
+            onClick={() => setView('list')}
+            aria-pressed={view === 'list'}
+          >
+            List
+          </Button>
+          <Button
+            size="sm"
+            variant={view === 'map' ? 'secondary' : 'ghost'}
+            onClick={() => setView('map')}
+            aria-pressed={view === 'map'}
+          >
+            Map
+          </Button>
         </div>
-
-        {/* Search and Filters */}
-        <div className="mb-8 space-y-4">
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by city, neighborhood, or property name..."
-                value={filters.searchTerm}
-                onChange={(e) => updateFilter('searchTerm', e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="gap-2"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="lg:hidden">
+              <SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden="true" />
               Filters
+              {activeFilters.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{activeFilters.length}</Badge>
+              )}
             </Button>
+          </SheetTrigger>
+          <SheetContent side="left">
+            <SheetHeader>
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <div className="mt-6">{filterControls}</div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {activeFilters.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          {activeFilters.map((filter) => (
+            <Badge key={filter.key} variant="secondary" className="gap-1 capitalize">
+              {filter.label}
+              <button
+                type="button"
+                onClick={() => update({ [filter.key]: null })}
+                aria-label={`Remove ${filter.label} filter`}
+                className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+        <aside className="hidden lg:block">
+          <div className="sticky top-24">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Filters
+            </h2>
+            {filterControls}
           </div>
+        </aside>
 
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="bg-card p-6 rounded-lg border animate-fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <Label htmlFor="property-type" className="mb-2 block">Property Type</Label>
-                  <Select value={filters.propertyType} onValueChange={(value) => updateFilter('propertyType', value)}>
-                    <SelectTrigger id="property-type">
-                      <SelectValue placeholder="All types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="apartment">Apartment</SelectItem>
-                      <SelectItem value="house">House</SelectItem>
-                      <SelectItem value="condo">Condo</SelectItem>
-                      <SelectItem value="studio">Studio</SelectItem>
-                      <SelectItem value="townhouse">Townhouse</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <section>
+          {view === 'map' ? (
+            search.isLoading ? (
+              <Skeleton className="h-[560px] w-full rounded-lg" />
+            ) : (
+              <Suspense fallback={<Skeleton className="h-[560px] w-full rounded-lg" />}>
+                <PropertyMap properties={results} />
+              </Suspense>
+            )
+          ) : (
+            <PropertyGrid
+              properties={results}
+              isLoading={search.isLoading || (search.isFetching && results.length === 0)}
+            />
+          )}
 
-                <div className="md:col-span-2">
-                  <Label className="mb-4 block">
-                    Price Range: ${filters.priceRange[0]} - ${filters.priceRange[1]}/month
-                  </Label>
-                  <Select
-                    value={filters.propertyType}
-                    onValueChange={(value) => updateFilter('propertyType', value)}
-                  >
-                    <SelectTrigger id="property-type">
-                      <SelectValue placeholder="All types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="apartment">Apartment</SelectItem>
-                      <SelectItem value="house">House</SelectItem>
-                      <SelectItem value="condo">Condo</SelectItem>
-                      <SelectItem value="studio">Studio</SelectItem>
-                      <SelectItem value="townhouse">Townhouse</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+          {search.isError && (
+            <p className="mt-6 rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-center text-destructive">
+              We could not load properties. Please try again.
+            </p>
+          )}
 
-              <div className="mt-4 flex justify-end gap-2">
+          {totalPages > 1 && (
+            <>
+              <Separator className="my-8" />
+              <nav className="flex items-center justify-between" aria-label="Pagination">
                 <Button
                   variant="outline"
-                  onClick={clearFilters}
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => update({ page: String(page - 1) })}
                 >
-                  Clear Filters
+                  <ChevronLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Previous
                 </Button>
-                <Button onClick={() => setShowFilters(false)}>
-                  Apply Filters
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => update({ page: String(page + 1) })}
+                >
+                  Next
+                  <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
                 </Button>
-              </div>
-            </div>
+              </nav>
+            </>
           )}
-        </div>
-
-        {/* Properties Grid */}
-        <AdContainer pageType="properties" position="top" className="mb-8" />
-        
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        ) : filteredAndSortedProperties.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedProperties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <p className="text-xl text-muted-foreground mb-4">
-              No properties found matching your criteria
-            </p>
-            <Button
-              variant="outline"
-              onClick={clearFilters}
-            >
-              Clear All Filters
-            </Button>
-          </div>
-        )}
-        
-        <AdContainer pageType="properties" position="bottom" />
+        </section>
       </div>
     </div>
   );

@@ -1,0 +1,36 @@
+{
+  "name": "@agently/api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agently API \u2014 Cloudflare Worker (D1 + R2 + KV + Queues + Durable Objects)",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --env production",
+    "deploy:staging": "wrangler deploy --env staging",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:create": "wrangler d1 create agently-db",
+    "db:migrate:local": "wrangler d1 migrations apply agently-db --local",
+    "db:migrate:staging": "wrangler d1 migrations apply agently-db --env staging",
+    "db:migrate:production": "wrangler d1 migrations apply agently-db --env production",
+    "db:seed:local": "bash scripts/seed.sh",
+    "tail": "wrangler tail",
+    "dev:reset": "rm -rf .wrangler/state && npm run db:migrate:local",
+    "test:e2e": "bash scripts/e2e.sh"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.40",
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.91.0"
+  }
+}

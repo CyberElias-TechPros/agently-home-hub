@@ -1,166 +1,180 @@
-# Agently - Comprehensive Real Estate Platform
+# Agently
 
-Agently is a modern, full-featured real estate platform built for the Nigerian market, providing a complete ecosystem for property rentals, roommate matching, vendor services, insurance, mortgage calculations, and more.
+Agently is a rental platform for the Nigerian market. It connects tenants,
+landlords and agents and covers the rental lifecycle: search, enquiries,
+agreements, maintenance and move-out.
 
-## 🚀 Features
+This document describes what is actually in the repository and how to run it.
+Product intent lives in [`plans/`](./plans); architecture in
+[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md); deployment in
+[`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
-### Core Platform
-- **Property Listings**: Advanced search and filtering for rental properties
-- **User Authentication**: Secure login/registration with role-based access
-- **Dashboard**: Personalized dashboard for tenants, landlords, and managers
-- **Booking System**: Seamless property booking and management
+---
 
-### Advanced Modules
-- **Roommate Matching**: AI-powered roommate compatibility matching
-- **Vendor Marketplace**: Connect with verified service providers
-- **Insurance Integration**: Comprehensive property insurance management
-- **Mortgage Calculator**: Advanced mortgage and affordability calculations
-- **Virtual Tours**: 360-degree property tours and VR support
-- **Tenant Portal**: Complete tenant management interface
-- **Landlord Portal**: Property management tools for landlords
-- **Property Valuation**: Automated valuation and market analysis
-- **Neighborhood Insights**: Safety scores, school ratings, amenities mapping
-- **Auction System**: Live property auctions with bidding
-- **Agent CRM**: Lead management and client tracking
-- **Maintenance Scheduling**: Automated maintenance coordination
-- **Document Templates**: Legal document generation and management
-- **Admin Panel**: Comprehensive system administration
+## What is built and working
 
-### Technical Features
-- **Real-time Messaging**: Instant communication between users
-- **Push Notifications**: Mobile and web notifications
-- **Multi-language Support**: Internationalization ready
-- **Mobile Responsive**: Optimized for all devices
-- **Offline Support**: PWA capabilities
-- **Performance Optimized**: Code splitting and lazy loading
+| Area | State | Notes |
+| --- | --- | --- |
+| Property search | Implemented, verified | Full-text, city, type, bedrooms, price, sorting, pagination; list and map views |
+| Property detail | Implemented, verified | Gallery, amenities, JSON-LD structured data, enquiry sidebar |
+| Accounts | Implemented, verified | Registration, login, refresh rotation with reuse detection, password reset, roles |
+| Enquiries / bookings | Implemented, verified | Tenant requests a move-in date; landlord approves or declines with a reason |
+| Maintenance | Implemented, verified | Tenant raises a request; landlord triages with published response targets |
+| Messaging | Implemented, verified | Threaded conversations between tenant and landlord/agent |
+| Documents | Implemented, verified | Upload to R2 via signed URL, download via short-lived link |
+| Agent CRM | Implemented, verified | Leads, pipeline, showings, commissions |
+| Roommate matching | Implemented, verified | Compatibility scoring across budget, lifestyle, habits and location |
+| Vendor marketplace | Implemented, verified | Directory, booking requests, reviews |
+| Administration | Implemented, verified | Platform analytics, user roles, account suspension, audit log |
+| Notifications | Implemented, verified | In-app notification centre, delivered through a queue |
 
-## 🛠️ Technology Stack
+"Verified" means it is exercised by an automated test in this repository — see
+[Testing](#testing).
 
-- **Frontend**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS with shadcn/ui components
-- **State Management**: Zustand (planned)
-- **Routing**: React Router v6
-- **API**: RESTful API with React Query
-- **Forms**: React Hook Form with Zod validation
-- **Icons**: Lucide React
-- **Charts**: Recharts
-- **Date Handling**: date-fns
+## What is not built
 
-## 📦 Installation
+Earlier documentation in this repository described insurance, mortgage
+calculators, property auctions, automated valuations, neighbourhood insights,
+360° virtual tours, multi-language support and offline/PWA support. **None of
+that code exists**, and the pages that claimed to provide it were removed rather
+than left as facades. There is no AI/ML component: roommate matching is a
+deterministic weighted score, documented in `worker/src/services/matching.ts`.
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd agently-home-hub
-   ```
+Not implemented, and deliberately so:
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+- **Payments.** Rent and deposits are never collected by Agently. Bookings
+  record an agreed rent; money moves between tenant and landlord directly.
+- **Email delivery.** The API sends mail when `RESEND_API_KEY` is configured and
+  records-and-skips otherwise, so local development needs no provider.
+- **Realtime push.** Messaging is served over a Durable Object, but the browser
+  currently polls every 10 seconds rather than holding a WebSocket open.
 
-3. **Start development server**
-   ```bash
-   npm run dev
-   ```
+---
 
-4. **Build for production**
-   ```bash
-   npm run build
-   ```
-
-## 🏗️ Project Structure
+## Architecture
 
 ```
-src/
-├── components/          # Reusable UI components
-│   ├── ui/             # shadcn/ui components
-│   └── ...             # Custom components
-├── pages/              # Page components
-├── hooks/              # Custom React hooks
-├── lib/                # Utilities and services
-│   ├── api.ts          # API service layer
-│   ├── auth.ts         # Authentication service
-│   ├── mockData.ts     # Mock data for development
-│   └── utils.ts        # Utility functions
-├── types/              # TypeScript type definitions
-└── assets/             # Static assets
+Browser (React SPA)  ──►  Vercel  ──rewrite──►  Cloudflare Worker (Hono)
+                                                       │
+                        ┌──────────┬──────────┬───────┴────┬────────────┐
+                        │ D1       │ R2       │ KV          │ Queues     │
+                        │ relational│ documents│ cache +    │ async      │
+                        │          │          │ rate limits │ notifications│
+                        └──────────┴──────────┴────────────┴────────────┘
+                                                       │
+                                              Durable Object (realtime hub)
 ```
 
-## 🔧 Development
+- **Frontend** — Vite + React 18 + TypeScript + Tailwind + shadcn/ui, in `src/`.
+- **API** — Hono on Cloudflare Workers, in `worker/src/`.
+- **Data** — D1 (SQLite at the edge) for records, R2 for documents, KV for
+  caching and rate limiting, Queues for notification delivery, Durable Objects
+  for realtime presence.
 
-### Available Scripts
+The API is served under `/api/*`. The browser always calls the same origin, and
+Vercel rewrites `/api/*` to the Worker, so there are no cross-origin requests
+and no API URL in client configuration.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run build:dev` - Build for development
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+---
 
-### Environment Variables
+## Getting started
 
-Create a `.env.local` file in the root directory:
+Requires Node 20+.
 
-```env
-VITE_API_URL=http://localhost:3001/api
+```bash
+# 1. Frontend dependencies
+npm install
+
+# 2. API dependencies
+cd worker && npm install
+
+# 3. Create the API's local secrets file
+cp worker/.dev.vars.example worker/.dev.vars
+# then set JWT_SECRET — generate one with:
+#   openssl rand -base64 48
+
+# 4. Create the local database
+cd worker && npm run db:migrate:local
 ```
 
-## 🚀 Deployment
+Run the API and the app in two terminals:
 
-The application is configured for deployment on Vercel, Netlify, or any static hosting service.
+```bash
+cd worker && npm run dev     # API on http://127.0.0.1:8787
+npm run dev                  # App on http://localhost:8080
+```
 
-### Build Optimization
+The Vite dev server proxies `/api` to the Worker, so the app behaves exactly as
+it does in production.
 
-- Code splitting for better performance
-- Image optimization
-- CSS minification
-- Service worker for caching
+To populate the API with sample landlords, agents, tenants and Lagos/Abuja
+listings:
 
-## 📱 Mobile Support
+```bash
+cd worker && npm run db:seed:local
+# sign in as landlord@agently.test / agent@agently.test / tenant@agently.test
+# password: SeededPass123!
+```
 
-The platform is fully responsive and includes:
-- Touch-friendly interfaces
-- Mobile-optimized navigation
-- PWA capabilities for offline use
-- Push notifications
+---
 
-## 🔒 Security
+## Testing
 
-- JWT-based authentication
-- Input validation with Zod
-- XSS protection
-- CSRF protection
-- Secure API endpoints
+Three suites, all runnable offline and all required to pass in CI:
 
-## 🧪 Testing
+```bash
+# Frontend: unit + component + page smoke tests (jsdom)
+npm run test                 # 88 tests
 
-The platform includes comprehensive testing:
-- Unit tests with Jest
-- Integration tests
-- E2E tests with Playwright
-- Accessibility testing
-- Performance testing
+# API: domain unit tests (Node)
+cd worker && npm run test    # 37 tests
 
-## 📈 Performance
+# API: end-to-end against a real Worker with simulated D1/R2/KV/Queues
+cd worker && npm run test:e2e   # 68 checks
+```
 
-- Lazy loading of components
-- Image optimization
-- Bundle analysis and optimization
-- CDN-ready asset management
+The end-to-end suite starts its own Worker on a free port with a throwaway
+state directory and a generated signing key, so it never touches your
+development database and can run concurrently with itself.
 
-## 🤝 Contributing
+Also available:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+```bash
+npm run typecheck            # strict TypeScript, frontend
+cd worker && npm run typecheck
+npm run lint
+npm run build                # type check, bundle, generate sitemap
+```
 
-## 📄 License
+---
 
-This project is licensed under the MIT License.
+## Repository layout
 
-## 📞 Support
+```
+src/            Frontend application
+worker/         Cloudflare Worker API
+  migrations/   D1 schema
+  scripts/      e2e.sh (end-to-end suite), seed.sh (dev data)
+  src/routes/   HTTP handlers
+  src/domain/   business rules
+  src/services/ cross-cutting services (notifications, matching)
+docs/           Architecture, deployment, API reference
+plans/          Product requirements, flows and feature roadmap
+scripts/        Build-time sitemap generation
+```
 
-For support or questions, please contact the development team or create an issue in the repository.
+## Conventions worth knowing
+
+- **Money.** The database stores integer kobo; the API returns **naira** (it
+  divides by 100 in every DTO). Never divide again in the UI — see the
+  contract note at the top of `src/lib/format.ts`.
+- **Response envelopes.** `{ data: … }` for anything that returns something,
+  `{ success: true }` for acknowledgements, `{ error: { code, message,
+  request_id } }` for failures.
+- **IDs** are UUIDv4 generated by the application, never sequential.
+- **Deletes are soft.** Rows carry `deleted_at` and are filtered out by queries;
+  the nightly cron purges what is old enough.
+
+## Licence
+
+No licence file is present; all rights are reserved until one is added.

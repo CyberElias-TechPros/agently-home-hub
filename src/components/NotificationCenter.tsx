@@ -1,356 +1,187 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
 import {
   Bell,
+  Calendar,
+  CheckCheck,
+  DollarSign,
+  Info,
   MessageSquare,
   UserCheck,
-  Calendar,
-  DollarSign,
-  Settings,
-  Check,
-  X,
-  Trash2,
-  Archive,
-  Star,
-  Filter
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { notificationsApi } from '@/lib/api';
+import type { Notification } from '@/lib/api/types';
+import { cn } from '@/lib/utils';
 
-interface Notification {
-  id: string;
-  user_id: string;
-  type: 'message' | 'lead_update' | 'showing_scheduled' | 'commission_earned' | 'system';
-  title: string;
-  content: string;
-  data?: any;
-  read_at?: string;
-  created_at: string;
-}
+const ICONS: Record<string, typeof Bell> = {
+  message: MessageSquare,
+  booking_requested: Calendar,
+  booking_approved: Calendar,
+  booking_declined: Calendar,
+  maintenance_created: Info,
+  maintenance_updated: Info,
+  lead_assigned: UserCheck,
+  commission_earned: DollarSign,
+};
 
-interface NotificationCenterProps {
-  token: string;
-  onNotificationClick?: (notification: Notification) => void;
-}
+/**
+ * Header notification bell.
+ *
+ * Previously this component fetched a non-existent endpoint with a hand-rolled
+ * `fetch` and a manually threaded token; it now uses the shared API client, so
+ * refresh, error handling and sign-out-on-401 all behave like the rest of the
+ * app. The unread badge is driven by a cheap count endpoint that is polled
+ * rather than by loading the whole list.
+ */
+export function NotificationCenter() {
+  const queryClient = useQueryClient();
 
-export default function NotificationCenter({ 
-  token, 
-  onNotificationClick 
-}: NotificationCenterProps) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'message' | 'system'>('all');
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  // Fetch notifications
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/messages/notifications?unread_only=${filter === 'unread'}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.notifications?.filter((n: Notification) => !n.read_at).length || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch notifications',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mark notifications as read
-  const markAsRead = async (notificationIds: string[]) => {
-    try {
-      const response = await fetch('/api/messages/notifications/read', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ notification_ids: notificationIds })
-      });
-      
-      if (response.ok) {
-        setNotifications(prev => prev.map(notification => 
-          notificationIds.includes(notification.id)
-            ? { ...notification, read_at: new Date().toISOString() }
-            : notification
-        ));
-        setUnreadCount(prev => Math.max(0, prev - notificationIds.length));
-      }
-    } catch (error) {
-      console.error('Error marking notifications as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark notifications as read',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Delete notifications
-  const deleteNotifications = async (notificationIds: string[]) => {
-    try {
-      const response = await fetch('/api/messages/notifications', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ notification_ids: notificationIds })
-      });
-      
-      if (response.ok) {
-        setNotifications(prev => prev.filter(notification => 
-          !notificationIds.includes(notification.id)
-        ));
-        setUnreadCount(prev => Math.max(0, prev - notificationIds.filter(id => 
-          !notifications.find(n => n.id === id)?.read_at
-        ).length));
-        
-        toast({
-          title: 'Success',
-          description: 'Notifications deleted successfully'
-        });
-      }
-    } catch (error) {
-      console.error('Error deleting notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notifications',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  // Get notification icon
-  const getNotificationIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'message':
-        return <MessageSquare className="h-4 w-4 text-blue-500" />;
-      case 'lead_update':
-        return <UserCheck className="h-4 w-4 text-green-500" />;
-      case 'showing_scheduled':
-        return <Calendar className="h-4 w-4 text-orange-500" />;
-      case 'commission_earned':
-        return <DollarSign className="h-4 w-4 text-purple-500" />;
-      case 'system':
-        return <Settings className="h-4 w-4 text-gray-500" />;
-      default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  // Get notification color
-  const getNotificationColor = (type: Notification['type']) => {
-    switch (type) {
-      case 'message':
-        return 'bg-blue-50 border-blue-200';
-      case 'lead_update':
-        return 'bg-green-50 border-green-200';
-      case 'showing_scheduled':
-        return 'bg-orange-50 border-orange-200';
-      case 'commission_earned':
-        return 'bg-purple-50 border-purple-200';
-      case 'system':
-        return 'bg-gray-50 border-gray-200';
-      default:
-        return 'bg-gray-50 border-gray-200';
-    }
-  };
-
-  // Filter notifications
-  const filteredNotifications = notifications.filter(notification => {
-    switch (filter) {
-      case 'unread':
-        return !notification.read_at;
-      case 'message':
-        return notification.type === 'message';
-      case 'system':
-        return notification.type === 'system';
-      default:
-        return true;
-    }
+  const countQuery = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationsApi.unreadCount().then((r) => r.data.count),
+    refetchInterval: 60_000,
   });
 
-  // Format notification time
-  const formatNotificationTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  const listQuery = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => notificationsApi.list().then((r) => r.data),
+  });
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
-  // Handle notification click
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read_at) {
-      markAsRead([notification.id]);
-    }
-    
-    if (onNotificationClick) {
-      onNotificationClick(notification);
-    }
-  };
+  const markAll = useMutation({
+    mutationFn: () => notificationsApi.markAllRead(),
+    onSuccess: invalidate,
+  });
 
-  // Mark all as read
-  const markAllAsRead = () => {
-    const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
-    if (unreadIds.length > 0) {
-      markAsRead(unreadIds);
-    }
-  };
+  const markRead = useMutation({
+    mutationFn: (id: string) => notificationsApi.markRead(id),
+    onSuccess: invalidate,
+  });
 
-  // Clear all notifications
-  const clearAllNotifications = () => {
-    const allIds = notifications.map(n => n.id);
-    if (allIds.length > 0) {
-      deleteNotifications(allIds);
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [filter]);
+  const unread = countQuery.data ?? 0;
+  const notifications = listQuery.data ?? [];
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notifications
-            {unreadCount > 0 && (
-              <Badge className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                {unreadCount}
-              </Badge>
-            )}
-          </CardTitle>
-          
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={markAllAsRead}
-              disabled={unreadCount === 0}
-            >
-              <Check className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearAllNotifications}
-              disabled={notifications.length === 0}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        
-        {/* Filter Tabs */}
-        <div className="flex gap-1">
-          {(['all', 'unread', 'message', 'system'] as const).map((filterType) => (
-            <Button
-              key={filterType}
-              variant={filter === filterType ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter(filterType)}
-              className="text-xs"
-            >
-              {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
-            </Button>
-          ))}
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-0">
-        <ScrollArea className="h-96">
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            </div>
-          ) : filteredNotifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-gray-500">
-              <Bell className="h-12 w-12 mb-2 text-gray-300" />
-              <p className="text-sm">No notifications</p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {filteredNotifications.map((notification, index) => (
-                <div key={notification.id}>
-                  <div
-                    className={`p-4 cursor-pointer transition-colors hover:bg-gray-50 ${
-                      !notification.read_at ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-1">
-                          <h4 className="font-medium text-sm truncate">
-                            {notification.title}
-                          </h4>
-                          <div className="flex items-center gap-1">
-                            {!notification.read_at && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            )}
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
-                              {formatNotificationTime(notification.created_at)}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <p className="text-sm text-gray-600 line-clamp-2">
-                          {notification.content}
-                        </p>
-                        
-                        {notification.data && (
-                          <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
-                            {Object.entries(notification.data).map(([key, value]) => (
-                              <div key={key} className="flex justify-between">
-                                <span className="text-gray-500 capitalize">{key}:</span>
-                                <span className="text-gray-700">{String(value)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {index < filteredNotifications.length - 1 && (
-                    <Separator />
-                  )}
-                </div>
-              ))}
-            </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}>
+          <Bell className="h-5 w-5" aria-hidden="true" />
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+              {unread > 9 ? '9+' : unread}
+            </span>
           )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-96 p-0">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h2 className="text-sm font-semibold">Notifications</h2>
+          {unread > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              disabled={markAll.isPending}
+              onClick={() => markAll.mutate()}
+            >
+              <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              Mark all read
+            </Button>
+          )}
+        </div>
+        <Separator />
+
+        {listQuery.isLoading ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">Loading…</p>
+        ) : notifications.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            You have no notifications yet.
+          </p>
+        ) : (
+          <ScrollArea className="max-h-96">
+            <ul className="divide-y">
+              {notifications.map((notification) => (
+                <NotificationRow
+                  key={notification.id}
+                  notification={notification}
+                  onRead={() => markRead.mutate(notification.id)}
+                />
+              ))}
+            </ul>
+          </ScrollArea>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
+}
+
+function NotificationRow({
+  notification,
+  onRead,
+}: {
+  notification: Notification;
+  onRead: () => void;
+}) {
+  const Icon = ICONS[notification.type] ?? Info;
+  const isUnread = notification.read_at === null;
+  const href = linkFor(notification);
+
+  const content = (
+    <button
+      type="button"
+      onClick={onRead}
+      className={cn(
+        'flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60',
+        isUnread && 'bg-accent/5'
+      )}
+    >
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-sm font-medium">{notification.title}</span>
+          {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />}
+        </span>
+        {notification.body && (
+          <span className="mt-0.5 block text-xs text-muted-foreground">{notification.body}</span>
+        )}
+        <span className="mt-1 block text-xs text-muted-foreground/70">
+          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+        </span>
+      </span>
+    </button>
+  );
+
+  return (
+    <li>
+      {href ? (
+        <Link to={href} onClick={onRead} className="block">
+          {content}
+        </Link>
+      ) : (
+        content
+      )}
+    </li>
+  );
+}
+
+/** Deep-links a notification to the screen that can act on it. */
+function linkFor(notification: Notification): string | null {
+  if (notification.resource_type === 'conversation') return '/messages';
+  if (notification.resource_type === 'booking') return '/bookings';
+  if (notification.resource_type === 'maintenance_request') return '/maintenance';
+  if (notification.resource_type === 'document') return '/documents';
+  return null;
 }

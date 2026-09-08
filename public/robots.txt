@@ -1,14 +1,22 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# www.robotstxt.org/
+# https://www.google.com/support/webmasters/bin/answer.py?hl=en&answer=156449
 
 User-agent: *
 Allow: /
+
+# Authenticated areas: nothing to index, and crawling them wastes your budget.
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /settings
+Disallow: /bookings
+Disallow: /maintenance
+Disallow: /documents
+Disallow: /messages
+Disallow: /roommates
+Disallow: /vendors
+Disallow: /agents
+Disallow: /landlord
+Disallow: /tenant
+Disallow: /api/
+
+Sitemap: https://agently.app/sitemap.xml

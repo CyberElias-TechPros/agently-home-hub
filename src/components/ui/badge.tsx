@@ -20,13 +20,11 @@ const badgeVariants = cva(
   },
 );
 
-export interface BadgeProps {
-  variant?: "default" | "secondary" | "destructive" | "outline" | null;
-  className?: string;
-  children?: React.ReactNode;
-  key?: string | number;
-  onClick?: () => void;
-}
+export type BadgeProps = React.HTMLAttributes<HTMLElement> &
+  VariantProps<typeof badgeVariants> & {
+    /** Renders an interactive <button> instead of a <div>. */
+    onClick?: () => void;
+  };
 
 function Badge({ className, variant, onClick, ...props }: BadgeProps) {
   const Component = onClick ? "button" : "div";

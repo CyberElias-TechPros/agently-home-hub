@@ -1,0 +1,197 @@
+# ---------------------------------------------------------------------------
+# Agently API — Cloudflare Worker
+#
+# Environments:
+#   local       -> wrangler dev (D1/R2/KV emulated locally)
+#   staging     -> `wrangler deploy --env staging`
+#   production  -> `wrangler deploy --env production`
+# ---------------------------------------------------------------------------
+
+name = "agently-api"
+# Keep the worker in a single region-friendly footprint; D1 lives where the
+# database was created.
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# KeepWorkers fast and cheap: only ship what the bundle actually needs.
+minify = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# ---------------------------------------------------------------------------
+# Triggers
+# ---------------------------------------------------------------------------
+
+[triggers]
+crons = [
+  # Nightly housekeeping: expired tokens, stale uploads, notification pruning.
+  "17 3 * * *",
+  # Morning saved-search digest (queued, not sent inline).
+  "0 8 * * *",
+]
+
+# ---------------------------------------------------------------------------
+# Top level = local development defaults (`wrangler dev`).
+# Deployed environments are defined below as [env.staging] / [env.production].
+# Note: bindings are NOT inherited by named environments and must be repeated.
+
+# ---------------------------------------------------------------------------
+# Bindings
+# ---------------------------------------------------------------------------
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agently-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "agently-documents"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "00000000000000000000000000000000"
+
+[[kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "00000000000000000000000000000000"
+
+[[queues.producers]]
+binding = "NOTIFICATION_QUEUE"
+queue = "agently-notifications"
+
+[[queues.consumers]]
+queue = "agently-notifications"
+max_batch_size = 20
+max_batch_timeout = 10
+max_retries = 5
+
+[[durable_objects.bindings]]
+name = "REALTIME_HUB"
+class_name = "RealtimeHub"
+script_name = "agently-api"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RealtimeHub"]
+
+# ---------------------------------------------------------------------------
+# Static assets served straight from the Worker (public, cache-friendly)
+# ---------------------------------------------------------------------------
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# ---------------------------------------------------------------------------
+# Vars (non-secret). Secrets are set with `wrangler secret put`.
+# ---------------------------------------------------------------------------
+
+[vars]
+ENVIRONMENT = "development"
+API_VERSION = "v1"
+# Comma separated list of origins allowed to call the API from a browser.
+ALLOWED_ORIGINS = "http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173"
+ACCESS_TOKEN_TTL_SECONDS = "900"
+REFRESH_TOKEN_TTL_SECONDS = "2592000"
+MAX_UPLOAD_BYTES = "10485760"
+
+# ---------------------------------------------------------------------------
+# Staging
+# ---------------------------------------------------------------------------
+
+[env.staging]
+name = "agently-api-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "agently-db-staging"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[env.staging.r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "agently-documents-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "CACHE"
+id = "00000000000000000000000000000000"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "00000000000000000000000000000000"
+
+[[env.staging.queues.producers]]
+binding = "NOTIFICATION_QUEUE"
+queue = "agently-notifications-staging"
+
+[[env.staging.queues.consumers]]
+queue = "agently-notifications-staging"
+max_batch_size = 20
+max_batch_timeout = 10
+max_retries = 5
+
+[[env.staging.durable_objects.bindings]]
+name = "REALTIME_HUB"
+class_name = "RealtimeHub"
+script_name = "agently-api-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+API_VERSION = "v1"
+ALLOWED_ORIGINS = "https://staging.agently.app,http://localhost:8080"
+ACCESS_TOKEN_TTL_SECONDS = "900"
+REFRESH_TOKEN_TTL_SECONDS = "2592000"
+MAX_UPLOAD_BYTES = "10485760"
+
+# ---------------------------------------------------------------------------
+# Production
+# ---------------------------------------------------------------------------
+
+[env.production]
+name = "agently-api"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "agently-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[env.production.r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "agently-documents"
+
+[[env.production.kv_namespaces]]
+binding = "CACHE"
+id = "00000000000000000000000000000000"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "00000000000000000000000000000000"
+
+[[env.production.queues.producers]]
+binding = "NOTIFICATION_QUEUE"
+queue = "agently-notifications"
+
+[[env.production.queues.consumers]]
+queue = "agently-notifications"
+max_batch_size = 20
+max_batch_timeout = 10
+max_retries = 5
+
+[[env.production.durable_objects.bindings]]
+name = "REALTIME_HUB"
+class_name = "RealtimeHub"
+script_name = "agently-api"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+API_VERSION = "v1"
+ALLOWED_ORIGINS = "https://agently.app,https://www.agently.app"
+ACCESS_TOKEN_TTL_SECONDS = "900"
+REFRESH_TOKEN_TTL_SECONDS = "2592000"
+MAX_UPLOAD_BYTES = "10485760"
