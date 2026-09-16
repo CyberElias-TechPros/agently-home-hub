@@ -29,6 +29,7 @@ import Testing from "./pages/Testing";
 import Auth from "./pages/Auth";
 import About from "./pages/About";
 import AdManagement from "./pages/AdManagement";
+import { Privacy, Terms, Contact } from "./pages/Legal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,9 @@ const App = () => (
               <Route path="/testing" element={<Testing />} />
               <Route path="/about" element={<About />} />
               <Route path="/ad-management" element={<AdManagement />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/contact" element={<Contact />} />
             </Route>
             <Route path="/auth" element={<Auth />} />
             <Route path="*" element={<NotFound />} />

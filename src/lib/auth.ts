@@ -1,15 +1,19 @@
-// Authentication service for production-ready auth
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+// Authentication service — talks to the real Agently API via `authApi`.
+// Tokens are persisted in localStorage; refresh is handled transparently.
+
+const USER_KEY = 'auth_user';
+const TOKENS_KEY = 'auth_tokens';
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'tenant' | 'landlord' | 'manager' | 'admin';
-  avatar?: string;
-  phone?: string;
+  role: 'tenant' | 'landlord' | 'agent' | 'manager' | 'admin';
+  avatar?: string | null;
+  phone?: string | null;
   verified: boolean;
-  createdAt: string;
+  createdAt?: string;
+  profile?: { bio?: string | null; company?: string | null; occupation?: string | null; trustScore?: number; verifiedStatus?: string };
 }
 
 export interface AuthState {
@@ -27,230 +31,164 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role: 'tenant' | 'landlord' | 'manager';
+  role: 'tenant' | 'landlord' | 'agent' | 'manager';
 }
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
 }
 
-// Real authentication service with API integration
+const ROLE_LABELS: Record<string, string> = {
+  tenant: 'Tenant',
+  landlord: 'Landlord',
+  agent: 'Agent',
+  manager: 'Manager',
+  admin: 'Admin',
+};
+
+export function roleLabel(role?: string | null): string {
+  return ROLE_LABELS[role || ''] || (role || '');
+}
+
 class AuthService {
   private static instance: AuthService;
   private currentUser: User | null = null;
   private tokens: AuthTokens | null = null;
+  private refreshPromise: Promise<string> | null = null;
 
   static getInstance(): AuthService {
-    if (!AuthService.instance) {
-      AuthService.instance = new AuthService();
-    }
+    if (!AuthService.instance) AuthService.instance = new AuthService();
     return AuthService.instance;
   }
 
-  private async apiRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
-    const url = `${API_BASE_URL}${endpoint}`;
-    
-    const defaultHeaders = {
-      'Content-Type': 'application/json',
-    };
-
-    // Add auth token if available
-    if (this.tokens?.accessToken) {
-      (defaultHeaders as any)['Authorization'] = `Bearer ${this.tokens.accessToken}`;
-    }
-
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-    }
-
-    return response;
+  constructor() {
+    this.loadFromStorage();
   }
 
-  private async refreshTokens(): Promise<void> {
-    if (!this.tokens?.refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
+  private loadFromStorage(): void {
     try {
-      const response = await this.apiRequest('/auth/refresh', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
-      });
-
-      const data = await response.json();
-      this.tokens = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken || this.tokens.refreshToken,
-      };
-      
-      this.saveTokens();
-    } catch (error) {
-      // Refresh failed, clear tokens
-      this.clearTokens();
-      throw error;
+      const tokens = localStorage.getItem(TOKENS_KEY);
+      if (tokens) this.tokens = JSON.parse(tokens);
+      const user = localStorage.getItem(USER_KEY);
+      if (user) this.currentUser = JSON.parse(user);
+    } catch {
+      /* ignore malformed storage */
     }
   }
 
   private saveTokens(): void {
-    if (this.tokens) {
-      localStorage.setItem('auth_tokens', JSON.stringify(this.tokens));
-    }
-  }
-
-  private loadTokens(): void {
-    const stored = localStorage.getItem('auth_tokens');
-    if (stored) {
-      try {
-        this.tokens = JSON.parse(stored);
-      } catch {
-        localStorage.removeItem('auth_tokens');
-      }
-    }
-  }
-
-  private clearTokens(): void {
-    this.tokens = null;
-    localStorage.removeItem('auth_tokens');
+    if (this.tokens) localStorage.setItem(TOKENS_KEY, JSON.stringify(this.tokens));
+    else localStorage.removeItem(TOKENS_KEY);
   }
 
   private saveUser(): void {
-    if (this.currentUser) {
-      localStorage.setItem('auth_user', JSON.stringify(this.currentUser));
-    }
+    if (this.currentUser) localStorage.setItem(USER_KEY, JSON.stringify(this.currentUser));
+    else localStorage.removeItem(USER_KEY);
   }
 
-  private loadUser(): void {
-    const stored = localStorage.getItem('auth_user');
-    if (stored) {
-      try {
-        this.currentUser = JSON.parse(stored);
-      } catch {
-        localStorage.removeItem('auth_user');
+  private clearAll(): void {
+    this.tokens = null;
+    this.currentUser = null;
+    localStorage.removeItem(TOKENS_KEY);
+    localStorage.removeItem(USER_KEY);
+  }
+
+  getAccessToken(): string | null {
+    if (!this.tokens) this.loadFromStorage();
+    return this.tokens?.accessToken || null;
+  }
+
+  getRefreshToken(): string | null {
+    if (!this.tokens) this.loadFromStorage();
+    return this.tokens?.refreshToken || null;
+  }
+
+  async refreshAccessToken(): Promise<string> {
+    if (this.refreshPromise) return this.refreshPromise;
+    const refreshToken = this.getRefreshToken();
+    this.refreshPromise = (async () => {
+      if (!refreshToken) throw new Error('No refresh token');
+      const { authApi } = await import('./api');
+      const { accessToken } = await authApi.refresh(refreshToken);
+      if (this.tokens) {
+        this.tokens.accessToken = accessToken;
+        this.saveTokens();
       }
-    }
+      return accessToken;
+    })()
+      .finally(() => {
+        this.refreshPromise = null;
+      });
+    return this.refreshPromise;
   }
 
   async login(credentials: LoginCredentials): Promise<User> {
-    try {
-      const response = await this.apiRequest('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(credentials),
-      });
-
-      const data = await response.json();
-      
-      this.currentUser = data.user;
-      this.tokens = data.tokens;
-      
-      this.saveUser();
-      this.saveTokens();
-      
-      return this.currentUser;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Login failed');
-    }
+    const { authApi } = await import('./api');
+    const data = await authApi.login(credentials);
+    this.currentUser = data.user;
+    this.tokens = data.tokens;
+    this.saveUser();
+    this.saveTokens();
+    return this.currentUser;
   }
 
   async register(data: RegisterData): Promise<User> {
-    try {
-      const response = await this.apiRequest('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-
-      const responseData = await response.json();
-      
-      this.currentUser = responseData.user;
-      this.tokens = responseData.tokens || null;
-      
-      this.saveUser();
-      if (this.tokens) {
-        this.saveTokens();
-      }
-      
-      return this.currentUser;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Registration failed');
-    }
+    const { authApi } = await import('./api');
+    const res = await authApi.register(data);
+    this.currentUser = res.user;
+    this.tokens = res.tokens || null;
+    this.saveUser();
+    this.saveTokens();
+    return this.currentUser;
   }
 
   async logout(): Promise<void> {
+    const { authApi } = await import('./api');
     try {
-      if (this.tokens?.accessToken) {
-        await this.apiRequest('/auth/logout', {
-          method: 'POST',
-          body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
-        });
-      }
-    } catch (error) {
-      // Continue with logout even if API call fails
-      console.error('Logout API call failed:', error);
+      if (this.getRefreshToken()) await authApi.logout(this.getRefreshToken() || undefined);
+    } catch {
+      /* local sign-out proceeds regardless */
     } finally {
-      this.currentUser = null;
-      this.clearTokens();
-      localStorage.removeItem('auth_user');
+      this.clearAll();
     }
   }
 
   async getCurrentUser(): Promise<User | null> {
-    if (this.currentUser) return this.currentUser;
+    if (this.currentUser && this.tokens?.accessToken) return this.currentUser;
+    if (!this.tokens?.accessToken) return null;
 
-    // Try to load from storage
-    this.loadTokens();
-    this.loadUser();
-
-    if (this.currentUser && this.tokens?.accessToken) {
-      try {
-        // Verify token is still valid by fetching current user
-        const response = await this.apiRequest('/auth/me');
-        const userData = await response.json();
-        
-        this.currentUser = userData;
-        this.saveUser();
-        return this.currentUser;
-      } catch (error) {
-        // Token might be expired, try to refresh
+    const { authApi } = await import('./api');
+    try {
+      const data = await authApi.me();
+      this.currentUser = data.user;
+      this.saveUser();
+      return this.currentUser;
+    } catch (err: any) {
+      // Token may have expired — try refresh once.
+      if (err?.status === 401 || err?.status === 403) {
         try {
-          await this.refreshTokens();
-          const response = await this.apiRequest('/auth/me');
-          const userData = await response.json();
-          
-          this.currentUser = userData;
+          await this.refreshAccessToken();
+          const data = await authApi.me();
+          this.currentUser = data.user;
           this.saveUser();
           return this.currentUser;
-        } catch (refreshError) {
-          // Refresh failed, clear everything
-          this.clearTokens();
-          this.currentUser = null;
-          localStorage.removeItem('auth_user');
+        } catch {
+          this.clearAll();
           return null;
         }
       }
+      return this.currentUser;
     }
-
-    return this.currentUser;
   }
 
   getCurrentUserSync(): User | null {
+    if (!this.currentUser) this.loadFromStorage();
     return this.currentUser;
   }
 
   isAuthenticated(): boolean {
     return this.getCurrentUserSync() !== null;
-  }
-
-  getAccessToken(): string | null {
-    return this.tokens?.accessToken || null;
   }
 }
 

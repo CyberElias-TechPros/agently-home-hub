@@ -6,6 +6,79 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// ── Currency formatting (₦ Naira) ──────────────────────────────────────────
+export function naira(amount: number | string | null | undefined, opts: { compact?: boolean; decimals?: number } = {}): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '₦0';
+  const { compact = false, decimals = 0 } = opts;
+  if (compact && Math.abs(n) >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (compact && Math.abs(n) >= 1_000) return `₦${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  return `₦${n.toLocaleString('en-NG', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+}
+
+export function nairaCompact(amount: number | string | null | undefined): string {
+  return naira(amount, { compact: true });
+}
+
+// Short non-breaking price for tight UI spots.
+export function pricePerMonth(price: number | string | null | undefined): string {
+  return `${naira(price, { compact: true })}/mo`;
+}
+
+export function formatDate(input?: string | null): string {
+  if (!input) return '—';
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return input;
+  return d.toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+export function formatDateTime(input?: string | null): string {
+  if (!input) return '—';
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return input;
+  return d.toLocaleString('en-NG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function timeAgo(input?: string | null): string {
+  if (!input) return '';
+  const then = new Date(input).getTime();
+  if (Number.isNaN(then)) return '';
+  const seconds = Math.floor((Date.now() - then) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+export function initials(name?: string | null): string {
+  if (!name) return 'U';
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
+
+export function statusTone(status?: string | null): 'default' | 'success' | 'warning' | 'destructive' | 'info' {
+  switch (String(status || '').toLowerCase()) {
+    case 'confirmed': case 'completed': case 'resolved': case 'paid': case 'active': case 'succeeded': case 'verified': case 'qualified': case 'closed_won':
+      return 'success';
+    case 'pending': case 'in_progress': case 'assigned': case 'processing': case 'scheduled': case 'under_review': case 'submitted': case 'open':
+      return 'warning';
+    case 'rejected': case 'cancelled': case 'failed': case 'expired': case 'suspended': case 'new':
+      return 'destructive';
+    default:
+      return 'info';
+  }
+}
+
 export function calculateCompatibilityScore(profile: RoommateProfile, room: RoomAvailability): number {
   let score = 0;
   const maxScore = 100;

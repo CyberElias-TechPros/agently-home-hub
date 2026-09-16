@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 
-export type UserRole = 'tenant' | 'landlord' | 'manager';
+export type UserRole = 'tenant' | 'landlord' | 'agent' | 'manager' | 'admin';
 
 export interface User {
   id: string;
