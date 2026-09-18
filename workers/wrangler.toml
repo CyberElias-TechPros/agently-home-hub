@@ -1,16 +1,16 @@
 # Cloudflare Workers configuration for the Agently backend.
 # Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
-name = "agently-api"
+name = "agently-home-hub-api"
 main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 
 # Serve the built frontend (single-page app) from the same worker when present.
 # `npm run build` in the repo root emits the Vite bundle to ../dist.
-[assets]
-directory = "../dist"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-run_worker_first = ["/api", "/api/*", "/socket.io", "/socket.io/*"]
+#[assets]
+ # directory = "../dist"
+ # binding = "ASSETS"
+ # not_found_handling = "single-page-application"
+ # run_worker_first = ["/api", "/api/*"]
 
 # ---------------------------------------------------------------
 # Bindings (resolve against secrets via .dev.vars locally and
@@ -18,16 +18,16 @@ run_worker_first = ["/api", "/api/*", "/socket.io", "/socket.io/*"]
 # ---------------------------------------------------------------
 [[d1_databases]]
 binding = "DB"
-database_name = "agently-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "agently-hub-db"
+database_id = "3d2dffbe-06b5-40c7-93c6-278f7541227a"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
-id = "00000000000000000000000000000000"
+id = "147e7ffb2f3240b0aeae613dd6b3821a"
 
 # Optional bindings — only ACTIVE when their credentials are configured.
 # kv_namespaces = [
-#   { binding = "RATE_LIMIT", id = "00000000000000000000000000000000" }
+#   { binding = "RATE_LIMIT", id = "147e7ffb2f3240b0aeae613dd6b3821a" }
 # ]
 # r2_buckets = [
 #   { binding = "FILES", bucket_name = "agently-uploads" }
