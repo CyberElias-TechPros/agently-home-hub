@@ -11,7 +11,7 @@ import { MapPin, Shield, Footprints, School, Hospital, ShoppingBag, TrendingUp, 
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
-import { NeighborhoodInsights, SafetyData, WalkabilityData, SchoolData, AmenityData, TransportationData, DemographicData, FutureDevelopment } from '@/types';
+import type { NeighborhoodInsights as NeighborhoodInsightsType, SafetyData, WalkabilityData, SchoolData, AmenityData, TransportationData, DemographicData, FutureDevelopment } from '@/types';
 
 const NeighborhoodInsights = () => {
   const { user, isAuthenticated } = useAuth();
@@ -19,7 +19,7 @@ const NeighborhoodInsights = () => {
   const [activeTab, setActiveTab] = useState('overview');
   
   // State for neighborhood data
-  const [neighborhoods, setNeighborhoods] = useState<NeighborhoodInsights[]>([]);
+  const [neighborhoods, setNeighborhoods] = useState<NeighborhoodInsightsType[]>([]);
   const [safetyData, setSafetyData] = useState<SafetyData[]>([]);
   const [walkabilityData, setWalkabilityData] = useState<WalkabilityData[]>([]);
   const [schoolData, setSchoolData] = useState<SchoolData[]>([]);

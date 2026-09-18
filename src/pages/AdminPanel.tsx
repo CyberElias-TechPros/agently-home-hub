@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Users, Shield, BarChart3, AlertTriangle, CheckCircle, Clock, Calendar, MessageSquare, Settings, Globe, Database, Activity, Eye, Edit, Trash2, Plus, Filter, Download, Upload } from 'lucide-react';
+import { Search, Users, Shield, BarChart3, AlertTriangle, CheckCircle, Clock, Calendar, MessageSquare, Settings, Globe, Database, Activity, Eye, Edit, Trash2, Plus, Filter, Download, Upload, DollarSign } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
@@ -97,7 +97,7 @@ const AdminPanel = () => {
     try {
       setLoading(true);
       await apiService.updateUserRole(userId, role);
-      setAdminUsers(adminUsers.map(u => u.id === userId ? {...u, role} : u));
+      setAdminUsers(adminUsers.map(u => u.id === userId ? {...u, role: role as any} : u));
       toast({
         title: "Role Updated",
         description: "User role has been updated successfully.",
@@ -137,7 +137,7 @@ const AdminPanel = () => {
     try {
       setLoading(true);
       await apiService.resolveContentModeration(moderationId, action);
-      setContentModeration(contentModeration.map(m => m.id === moderationId ? {...m, status: action} : m));
+      setContentModeration(contentModeration.map(m => m.id === moderationId ? {...m, status: action as any} : m));
       toast({
         title: "Content Moderated",
         description: `Content has been ${action}.`,
@@ -560,7 +560,7 @@ const AdminPanel = () => {
                             <div className="flex items-center space-x-2 mt-2">
                               <input
                                 type="checkbox"
-                                checked={config.value}
+                                checked={Boolean(config.value)}
                                 onChange={(e) => updateSystemConfig(config.id, e.target.checked)}
                                 className="rounded"
                               />
@@ -569,13 +569,13 @@ const AdminPanel = () => {
                           ) : config.type === 'number' ? (
                             <Input
                               type="number"
-                              value={config.value}
+                              value={String(config.value)}
                               onChange={(e) => updateSystemConfig(config.id, parseInt(e.target.value))}
                               className="mt-2"
                             />
                           ) : (
                             <Input
-                              value={config.value}
+                              value={String(config.value)}
                               onChange={(e) => updateSystemConfig(config.id, e.target.value)}
                               className="mt-2"
                             />

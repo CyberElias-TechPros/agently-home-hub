@@ -7,58 +7,48 @@ import { Home, FileText, Wrench, MessageSquare, Heart, Calendar } from 'lucide-r
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import AdContainer from '@/components/AdContainer';
+import { apiService } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
+import { authService } from '@/lib/auth';
+import type { Booking } from '@/types';
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
   const { data: userData, isLoading: isUserLoading } = useQuery({
     queryKey: ['user'],
     queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/auth/me');
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data');
-      }
-      return response.json();
-    }
+      const me = await authService.getCurrentUser();
+      return me ?? user;
+    },
+    staleTime: 60_000,
   });
 
   const { data: bookingsData, isLoading: isBookingsLoading } = useQuery({
     queryKey: ['bookings'],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/bookings');
-      if (!response.ok) {
-        throw new Error('Failed to fetch bookings');
-      }
-      return response.json();
-    }
+    queryFn: () => apiService.getBookings(),
+    staleTime: 30_000,
   });
 
   const { data: maintenanceData, isLoading: isMaintenanceLoading } = useQuery({
     queryKey: ['maintenance'],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/maintenance');
-      if (!response.ok) {
-        throw new Error('Failed to fetch maintenance requests');
-      }
-      return response.json();
-    }
+    queryFn: () => apiService.getMaintenanceRequests(),
+    staleTime: 30_000,
   });
 
   const { data: propertiesData, isLoading: isPropertiesLoading } = useQuery({
     queryKey: ['properties'],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/properties');
-      if (!response.ok) {
-        throw new Error('Failed to fetch properties');
-      }
-      return response.json();
-    }
+    queryFn: () => apiService.getProperties(),
+    staleTime: 60_000,
   });
 
   if (isUserLoading || isBookingsLoading || isMaintenanceLoading || isPropertiesLoading) {
-    return <div>Loading...</div>;
+    return <div className="flex justify-center py-32 text-muted-foreground">Loading…</div>;
   }
 
-  const userBookings = bookingsData?.filter(b => b.tenantId === userData?.id) || [];
-  const userMaintenance = maintenanceData?.filter(m => m.tenantId === userData?.id) || [];
+  const currentId = userData?.id ?? user?.id;
+  const userBookings = (bookingsData ?? []).filter((b: Booking) => (b as any).tenantId === currentId) ?? [];
+  const userMaintenance = (maintenanceData ?? []).filter((m: any) => (m as any).tenantId === currentId) ?? [];
 
   const statusColors = {
     pending: 'bg-warning',

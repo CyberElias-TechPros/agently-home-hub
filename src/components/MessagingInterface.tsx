@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { API_BASE_URL } from '@/lib/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -128,8 +129,17 @@ export default function MessagingInterface({
 
   // Initialize Socket.io connection
   useEffect(() => {
-    const newSocket = io(process.env.REACT_APP_SERVER_URL || 'http://localhost:3001', {
-      auth: { token }
+    // Resolve the Socket.IO endpoint from the same API base the REST client uses.
+    // The Worker always serves Socket.IO at the origin root under `/socket.io`,
+    // so connect to that origin (same-origin in dev via Vite proxy, worker
+    // origin in production).
+    const origin = API_BASE_URL === '/api'
+      ? window.location.origin
+      : new URL(API_BASE_URL).origin;
+    const newSocket = io(origin, {
+      path: '/socket.io',
+      auth: { token },
+      transports: ['polling', 'websocket'],
     });
 
     newSocket.on('connect', () => {

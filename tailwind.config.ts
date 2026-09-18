@@ -57,6 +57,10 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          foreground: "hsl(var(--gold-foreground))",
+        },
         violet: {
           DEFAULT: "hsl(var(--violet))",
           foreground: "hsl(var(--violet-foreground))",
@@ -72,6 +76,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+      },
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Sora", "Inter", "sans-serif"],
+        editorial: ["Instrument Serif", "Georgia", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -99,6 +108,19 @@ export default {
           from: { transform: "scale(0.95)", opacity: "0" },
           to: { transform: "scale(1)", opacity: "1" },
         },
+        "shimmer": {
+          from: { backgroundPosition: "200% 0" },
+          to: { backgroundPosition: "-200% 0" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { boxShadow: "var(--shadow-glow)" },
+          "50%": { boxShadow: "var(--shadow-glow-teal)" },
+        },
+        "blob": {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(30px, -40px) scale(1.1)" },
+          "66%": { transform: "translate(-25px, 25px) scale(0.95)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -106,18 +128,28 @@ export default {
         "fade-in": "fade-in 0.5s ease-out",
         "slide-up": "slide-up 0.4s ease-out",
         "scale-in": "scale-in 0.3s ease-out",
+        "shimmer": "shimmer 3s linear infinite",
+        "pulse-glow": "pulse-glow 5s ease-in-out infinite",
+        "blob": "blob 14s ease-in-out infinite",
       },
       backgroundImage: {
         "gradient-hero": "var(--gradient-hero)",
         "gradient-accent": "var(--gradient-accent)",
         "gradient-subtle": "var(--gradient-subtle)",
         "gradient-violet": "var(--gradient-violet)",
+        "gradient-gold": "var(--gradient-gold)",
       },
       boxShadow: {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         xl: "var(--shadow-xl)",
+        glow: "var(--shadow-glow)",
+        "glow-teal": "var(--shadow-glow-teal)",
+      },
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
+        spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
       },
     },
   },

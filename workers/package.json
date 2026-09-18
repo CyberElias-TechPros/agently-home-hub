@@ -1,0 +1,32 @@
+{
+  "name": "agently-cloudflare-backend",
+  "version": "2.0.0",
+  "description": "Cloudflare Workers API for Agently - full real-estate operating system backend (D1 + KV + Assets)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "deploy:dry": "wrangler deploy --dry-run --outdir dist-worker",
+    "db:init": "wrangler d1 execute agently-db --remote --file=./migrations/0001_init.sql",
+    "db:seed": "wrangler d1 execute agently-db --remote --file=./migrations/0002_seed_properties.sql",
+    "db:market": "wrangler d1 execute agently-db --remote --file=./migrations/0003_marketplace.sql",
+    "db:init:local": "wrangler d1 execute agently-db --local --file=./migrations/0001_init.sql",
+    "db:seed:local": "wrangler d1 execute agently-db --local --file=./migrations/0002_seed_properties.sql",
+    "db:market:local": "wrangler d1 execute agently-db --local --file=./migrations/0003_marketplace.sql",
+    "db:reset:local": "wrangler d1 execute agently-db --local --file=./migrations/0000_drop.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.14",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.134.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

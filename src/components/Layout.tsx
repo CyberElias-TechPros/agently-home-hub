@@ -70,12 +70,14 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <header className="sticky top-0 z-50 glass-strong border-b border-border/50">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2">
-              <Building2 className="h-8 w-8 text-primary" />
-              <span className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+            <Link to="/" className="flex items-center space-x-2 group">
+              <div className="w-9 h-9 rounded-xl bg-gradient-hero flex items-center justify-center shadow-glow">
+                <Building2 className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-2xl font-display font-bold text-gradient">
                 Agently
               </span>
             </Link>
@@ -193,9 +195,9 @@ export default function Layout() {
               {isAuthenticated && user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.avatar} alt={user.name} />
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full ring-2 ring-primary/40">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={user.avatar ?? undefined} alt={user.name} />
                         <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                       </Avatar>
                     </Button>
@@ -231,7 +233,7 @@ export default function Layout() {
                 </DropdownMenu>
               ) : (
                 <Link to="/auth">
-                  <Button variant="outline" className="hidden sm:inline-flex">
+                  <Button className="btn-cinematic hidden sm:inline-flex h-10 px-5">
                     Sign In
                   </Button>
                 </Link>
@@ -298,7 +300,7 @@ export default function Layout() {
 
           <div className="border-t border-border/50 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-sm text-muted-foreground">
-              © 2025 Agently. All rights reserved. Built for the future of real estate.
+              © {new Date().getFullYear()} Agently. All rights reserved. Built for the future of real estate.
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground">
               <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>

@@ -7,11 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MapPin, TrendingUp, BarChart3, Building2, DollarSign, Calendar, Users, Eye, FileText, AlertTriangle, CheckCircle, Clock, Search, Plus, Edit, Target } from 'lucide-react';
+import { MapPin, TrendingUp, BarChart3, Building2, DollarSign, Calendar, Users, Eye, FileText, AlertTriangle, CheckCircle, Clock, Search, Plus, Edit, Target, Download, Share2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
-import { PropertyValuation, PropertyInspection, ValuationReport, ValuationDispute, Property } from '@/types';
+import type { PropertyValuation as PropertyValuationType, PropertyInspection, ValuationReport, ValuationDispute, Property } from '@/types';
 
 const PropertyValuation = () => {
   const { user, isAuthenticated } = useAuth();
@@ -19,7 +19,7 @@ const PropertyValuation = () => {
   const [activeTab, setActiveTab] = useState('valuation');
   
   // State for property valuation
-  const [valuations, setValuations] = useState<PropertyValuation[]>([]);
+  const [valuations, setValuations] = useState<PropertyValuationType[]>([]);
   const [inspections, setInspections] = useState<PropertyInspection[]>([]);
   const [reports, setReports] = useState<ValuationReport[]>([]);
   const [disputes, setDisputes] = useState<ValuationDispute[]>([]);
@@ -435,7 +435,7 @@ const PropertyValuation = () => {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Completed:</span>
-                              <div className="font-medium">{inspection.completedDate ? new Date(inspection.completedDate).toLocaleDateString() : 'N/A'}</div>
+                              <div className="font-medium">{inspection.status === 'completed' ? new Date(inspection.inspectionDate).toLocaleDateString() : 'N/A'}</div>
                             </div>
                           </div>
 
@@ -622,7 +622,7 @@ const PropertyValuation = () => {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Filed:</span>
-                              <p className="mt-1">{new Date(dispute.createdAt).toLocaleDateString()}</p>
+                              <p className="mt-1">{new Date((dispute as any).createdAt || Date.now()).toLocaleDateString()}</p>
                             </div>
                             <div>
                               <span className="text-muted-foreground">Resolution:</span>

@@ -1,21 +1,35 @@
-// Authentication service for production-ready auth
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+/**
+ * Authentication service — talks to the Cloudflare Worker `/auth` endpoints.
+ *
+ * Flow (happy path):
+ *   register → returns user + `/verify?token=…` link
+ *   verify   → activates the account
+ *   login    → returns user + access/refresh tokens (stored)
+ *   me       → token-protected profile fetch
+ *   refresh  → transparently handled by the HTTP client
+ */
+
+import { API_BASE_URL } from './config';
+import { getTokenPair, setTokenPair, clearTokens, getCachedUser, setCachedUser } from './tokens';
+
+export type UserRole = 'tenant' | 'landlord' | 'agent' | 'manager' | 'admin' | 'vendor';
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'tenant' | 'landlord' | 'manager' | 'admin';
-  avatar?: string;
-  phone?: string;
+  role: UserRole;
+  avatar?: string | null;
+  phone?: string | null;
   verified: boolean;
-  createdAt: string;
+  trustScore?: number;
+  kycStatus?: string;
+  createdAt?: string;
 }
 
-export interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface LoginCredentials {
@@ -27,231 +41,157 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role: 'tenant' | 'landlord' | 'manager';
+  role: UserRole;
 }
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
+export interface RegisterResult {
+  user: User;
+  verifyUrl?: string;
+  sentTo?: string;
 }
 
-// Real authentication service with API integration
-class AuthService {
-  private static instance: AuthService;
-  private currentUser: User | null = null;
-  private tokens: AuthTokens | null = null;
+/** register() returns the user plus (in demo mode) the verification link. */
+export type RegisteredUser = User & { verifyUrl?: string; sentTo?: string };
 
-  static getInstance(): AuthService {
-    if (!AuthService.instance) {
-      AuthService.instance = new AuthService();
-    }
-    return AuthService.instance;
+function toUser(raw: any): User {
+  return {
+    id: raw.id,
+    name: raw.name,
+    email: raw.email,
+    role: raw.role,
+    avatar: raw.avatar ?? null,
+    phone: raw.phone ?? null,
+    verified: raw.verified === true || raw.verified === 1,
+    trustScore: raw.trustScore ?? raw.trust_score ?? 50,
+    kycStatus: raw.kycStatus ?? raw.kyc_status ?? 'not_started',
+    createdAt: raw.createdAt ?? raw.created_at,
+  };
+}
+
+async function request(path: string, options: RequestInit = {}): Promise<any> {
+  const headers = new Headers(options.headers ?? {});
+  if (options.body) headers.set('Content-Type', 'application/json');
+
+  const tokens = getTokenPair();
+  if (tokens?.accessToken) headers.set('Authorization', `Bearer ${tokens.accessToken}`);
+
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+
+  let json: any = null;
+  try {
+    json = await response.json();
+  } catch {
+    json = null;
   }
 
-  private async apiRequest(endpoint: string, options: RequestInit = {}): Promise<Response> {
-    const url = `${API_BASE_URL}${endpoint}`;
-    
-    const defaultHeaders = {
-      'Content-Type': 'application/json',
-    };
+  if (!response.ok) {
+    const message = json?.error ?? `Request failed (${response.status})`;
+    const err = new Error(message) as Error & { code?: string; status?: number };
+    err.code = json?.code;
+    err.status = response.status;
+    throw err;
+  }
 
-    // Add auth token if available
-    if (this.tokens?.accessToken) {
-      (defaultHeaders as any)['Authorization'] = `Bearer ${this.tokens.accessToken}`;
-    }
+  return json?.data ?? json;
+}
 
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
-      },
+export const authService = {
+  async register(data: RegisterData): Promise<RegisterResult> {
+    const res = await request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
+    return {
+      user: toUser(res.user),
+      verifyUrl: res.verifyEmail?.verifyUrl,
+      sentTo: res.verifyEmail?.sentTo,
+    };
+  },
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-    }
-
-    return response;
-  }
-
-  private async refreshTokens(): Promise<void> {
-    if (!this.tokens?.refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    try {
-      const response = await this.apiRequest('/auth/refresh', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
-      });
-
-      const data = await response.json();
-      this.tokens = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken || this.tokens.refreshToken,
-      };
-      
-      this.saveTokens();
-    } catch (error) {
-      // Refresh failed, clear tokens
-      this.clearTokens();
-      throw error;
-    }
-  }
-
-  private saveTokens(): void {
-    if (this.tokens) {
-      localStorage.setItem('auth_tokens', JSON.stringify(this.tokens));
-    }
-  }
-
-  private loadTokens(): void {
-    const stored = localStorage.getItem('auth_tokens');
-    if (stored) {
-      try {
-        this.tokens = JSON.parse(stored);
-      } catch {
-        localStorage.removeItem('auth_tokens');
-      }
-    }
-  }
-
-  private clearTokens(): void {
-    this.tokens = null;
-    localStorage.removeItem('auth_tokens');
-  }
-
-  private saveUser(): void {
-    if (this.currentUser) {
-      localStorage.setItem('auth_user', JSON.stringify(this.currentUser));
-    }
-  }
-
-  private loadUser(): void {
-    const stored = localStorage.getItem('auth_user');
-    if (stored) {
-      try {
-        this.currentUser = JSON.parse(stored);
-      } catch {
-        localStorage.removeItem('auth_user');
-      }
-    }
-  }
+  async verifyEmail(token: string): Promise<User> {
+    const res = await request(`/auth/verify?token=${encodeURIComponent(token)}`);
+    return toUser(res.user);
+  },
 
   async login(credentials: LoginCredentials): Promise<User> {
-    try {
-      const response = await this.apiRequest('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(credentials),
+    const res = await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+    if (res.tokens) {
+      setTokenPair({
+        accessToken: res.tokens.accessToken,
+        refreshToken: res.tokens.refreshToken,
       });
-
-      const data = await response.json();
-      
-      this.currentUser = data.user;
-      this.tokens = data.tokens;
-      
-      this.saveUser();
-      this.saveTokens();
-      
-      return this.currentUser;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Login failed');
     }
-  }
+    const user = toUser(res.user);
+    setCachedUser(user);
+    return user;
+  },
 
-  async register(data: RegisterData): Promise<User> {
+  async refresh(): Promise<boolean> {
     try {
-      const response = await this.apiRequest('/auth/register', {
+      const res = await request('/auth/refresh', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({ refreshToken: getTokenPair()?.refreshToken }),
       });
-
-      const responseData = await response.json();
-      
-      this.currentUser = responseData.user;
-      this.tokens = responseData.tokens || null;
-      
-      this.saveUser();
-      if (this.tokens) {
-        this.saveTokens();
+      const current = getTokenPair();
+      if (res.accessToken) {
+        setTokenPair({ accessToken: res.accessToken, refreshToken: res.refreshToken ?? current?.refreshToken ?? '' });
+        return true;
       }
-      
-      return this.currentUser;
-    } catch (error) {
-      throw new Error(error instanceof Error ? error.message : 'Registration failed');
+      return false;
+    } catch {
+      return false;
     }
-  }
+  },
 
   async logout(): Promise<void> {
     try {
-      if (this.tokens?.accessToken) {
-        await this.apiRequest('/auth/logout', {
-          method: 'POST',
-          body: JSON.stringify({ refreshToken: this.tokens.refreshToken }),
-        });
-      }
-    } catch (error) {
-      // Continue with logout even if API call fails
-      console.error('Logout API call failed:', error);
+      await request('/auth/logout', { method: 'POST' });
+    } catch {
+      // swallow — tokens cleared below regardless
     } finally {
-      this.currentUser = null;
-      this.clearTokens();
-      localStorage.removeItem('auth_user');
+      clearTokens();
+      setCachedUser(null);
     }
-  }
+  },
+
+  async me(): Promise<User | null> {
+    try {
+      return toUser(await request('/auth/me'));
+    } catch {
+      return null;
+    }
+  },
+
+  async updateProfile(patch: { name?: string; phone?: string; avatar?: string }): Promise<User> {
+    return toUser(await request('/auth/profile', { method: 'PUT', body: JSON.stringify(patch) }));
+  },
+
+  async forgotPassword(email: string): Promise<{ resetToken?: string; resetUrl?: string }> {
+    return request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+  },
+
+  async resetPassword(token: string, password: string): Promise<void> {
+    await request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) });
+  },
 
   async getCurrentUser(): Promise<User | null> {
-    if (this.currentUser) return this.currentUser;
+    const cached = getCachedUser<User>();
+    const tokens = getTokenPair();
+    if (!tokens?.accessToken) return null;
 
-    // Try to load from storage
-    this.loadTokens();
-    this.loadUser();
-
-    if (this.currentUser && this.tokens?.accessToken) {
-      try {
-        // Verify token is still valid by fetching current user
-        const response = await this.apiRequest('/auth/me');
-        const userData = await response.json();
-        
-        this.currentUser = userData;
-        this.saveUser();
-        return this.currentUser;
-      } catch (error) {
-        // Token might be expired, try to refresh
-        try {
-          await this.refreshTokens();
-          const response = await this.apiRequest('/auth/me');
-          const userData = await response.json();
-          
-          this.currentUser = userData;
-          this.saveUser();
-          return this.currentUser;
-        } catch (refreshError) {
-          // Refresh failed, clear everything
-          this.clearTokens();
-          this.currentUser = null;
-          localStorage.removeItem('auth_user');
-          return null;
-        }
-      }
+    // Verify with the backend (also triggers refresh if stale).
+    const fresh = await this.me();
+    if (fresh) {
+      setCachedUser(fresh);
+      return fresh;
     }
-
-    return this.currentUser;
-  }
-
-  getCurrentUserSync(): User | null {
-    return this.currentUser;
-  }
+    return cached ?? null;
+  },
 
   isAuthenticated(): boolean {
-    return this.getCurrentUserSync() !== null;
-  }
-
-  getAccessToken(): string | null {
-    return this.tokens?.accessToken || null;
-  }
-}
-
-export const authService = AuthService.getInstance();
+    return Boolean(getTokenPair()?.accessToken);
+  },
+};

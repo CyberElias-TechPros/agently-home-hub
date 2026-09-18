@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, MapPin, DollarSign, Home, User, Clock, AlertCircle } from 'lucide-react';
 import { Property } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { apiService } from '@/lib/api';
 
 const bookingSchema = z.object({
   propertyId: z.string().min(1, 'Property is required'),
@@ -75,10 +76,7 @@ export default function BookingForm({ property, onSubmit, onCancel, isLoading = 
 
     setIsCheckingAvailability(true);
     try {
-      const response = await fetch(
-        `http://localhost:3002/api/bookings/availability/${property.id}?startDate=${startDate}&endDate=${endDate}`
-      );
-      const data = await response.json();
+      const data = await apiService.checkAvailability(property.id, startDate, endDate);
       setAvailability(data);
     } catch (error) {
       console.error('Error checking availability:', error);

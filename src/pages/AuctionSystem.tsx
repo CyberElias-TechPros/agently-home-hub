@@ -106,7 +106,7 @@ const AuctionSystem = () => {
       });
       
       // Check for auto-extend
-      const auction = auctions.find(a => a.id === auctionId);
+      const auction = auctions.find(a => a.id === auctionId) as any;
       if (auction && auction.autoExtend) {
         // Check if bid was placed in the last 5 minutes
         const endTime = new Date(auction.endDate);
@@ -636,8 +636,8 @@ const AuctionSystem = () => {
 
                               <div className="space-y-2">
                                 <div className="flex items-center space-x-2">
-                                  <input type="checkbox" checked={rule.autoExtend} readOnly />
-                                  <span className="text-sm">Auto-extend enabled ({rule.extendTime} minutes)</span>
+                                  <input type="checkbox" checked={(rule as any).autoExtend} readOnly />
+                                  <span className="text-sm">Auto-extend enabled ({(rule as any).extendTime} minutes)</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <input type="checkbox" checked={rule.maxBidsPerUser <= 10} readOnly />
