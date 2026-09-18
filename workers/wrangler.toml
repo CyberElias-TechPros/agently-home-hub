@@ -1,0 +1,49 @@
+# Cloudflare Workers configuration for the Agently backend.
+# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
+name = "agently-api"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+
+# Serve the built frontend (single-page app) from the same worker when present.
+# `npm run build` in the repo root emits the Vite bundle to ../dist.
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api", "/api/*", "/socket.io", "/socket.io/*"]
+
+# ---------------------------------------------------------------
+# Bindings (resolve against secrets via .dev.vars locally and
+# `wrangler secret put` in production).
+# ---------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "agently-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "00000000000000000000000000000000"
+
+# Optional bindings — only ACTIVE when their credentials are configured.
+# kv_namespaces = [
+#   { binding = "RATE_LIMIT", id = "00000000000000000000000000000000" }
+# ]
+# r2_buckets = [
+#   { binding = "FILES", bucket_name = "agently-uploads" }
+# ]
+
+[vars]
+ENVIRONMENT = "production"
+# Secret placeholders (override with `.dev.vars` / `wrangler secret put`)
+JWT_SECRET = "replace-me-with-a-strong-secret"
+JWT_REFRESH_SECRET = "replace-me-with-a-refresh-secret"
+
+observability = { enabled = true }
+
+[env.dev]
+[env.dev.vars]
+ENVIRONMENT = "development"
+# allow any origin in local dev
+ALLOWED_ORIGINS = "*"
+

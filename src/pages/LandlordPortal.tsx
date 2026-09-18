@@ -81,7 +81,7 @@ const LandlordPortal = () => {
     try {
       setLoading(true);
       await apiService.rejectBooking(bookingId, reason);
-      setBookings(bookings.map(b => b.id === bookingId ? {...b, status: 'rejected'} : b));
+      setBookings(bookings.map(b => b.id === bookingId ? {...b, status: 'cancelled'} : b));
       toast({
         title: "Booking Rejected",
         description: "The booking has been rejected.",
@@ -101,7 +101,7 @@ const LandlordPortal = () => {
     try {
       setLoading(true);
       await apiService.updateMaintenanceStatus(requestId, status);
-      setMaintenanceRequests(maintenanceRequests.map(m => m.id === requestId ? {...m, status} : m));
+      setMaintenanceRequests(maintenanceRequests.map(m => m.id === requestId ? {...m, status: status as any} : m));
       toast({
         title: "Maintenance Updated",
         description: `Maintenance request has been ${status}.`,
@@ -486,8 +486,8 @@ const LandlordPortal = () => {
               {tenants.length > 0 ? (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {tenants.map((tenant) => {
-                    const bookings = bookings.filter(b => b.tenantId === tenant.id);
-                    const activeBookings = bookings.filter(b => b.status === 'confirmed');
+                    const tenantBookings = bookings.filter(b => b.tenantId === tenant.id);
+                    const activeBookings = tenantBookings.filter(b => b.status === 'confirmed');
                     
                     return (
                       <Card key={tenant.id}>
@@ -515,7 +515,7 @@ const LandlordPortal = () => {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Total Bookings:</span>
-                              <span className="ml-2 font-medium">{bookings.length}</span>
+                              <span className="ml-2 font-medium">{tenantBookings.length}</span>
                             </div>
                             <div>
                               <span className="text-muted-foreground">Phone:</span>
@@ -523,7 +523,7 @@ const LandlordPortal = () => {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Member Since:</span>
-                              <span className="ml-2 font-medium">{new Date(tenant.createdAt || Date.now()).toLocaleDateString()}</span>
+                              <span className="ml-2 font-medium">{new Date((tenant as any).createdAt || Date.now()).toLocaleDateString()}</span>
                             </div>
                           </div>
 

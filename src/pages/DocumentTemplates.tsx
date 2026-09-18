@@ -551,7 +551,7 @@ const DocumentTemplates = () => {
                                   <Badge variant={
                                     document.status === 'signed' ? 'default' :
                                     document.status === 'draft' ? 'secondary' :
-                                    document.status === 'pending' ? 'outline' : 'destructive'
+                                    document.status === 'review' ? 'outline' : 'destructive'
                                   }>
                                     {document.status}
                                   </Badge>
@@ -716,7 +716,7 @@ const DocumentTemplates = () => {
                           <div className="flex items-center space-x-2">
                             <Badge variant={
                               comp.status === 'compliant' ? 'default' :
-                              comp.status === 'warnings' ? 'secondary' : 'destructive'
+                              comp.status === 'pending_review' ? 'secondary' : 'destructive'
                             }>
                               {comp.status}
                             </Badge>
@@ -847,12 +847,10 @@ const DocumentTemplates = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {analytics.complianceIssues.map((issue, index) => (
-                          <div key={index} className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded">
-                            <AlertTriangle className="h-4 w-4 text-red-600" />
-                            <span className="text-sm">{issue}</span>
-                          </div>
-                        ))}
+                        <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded">
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                          <span className="text-sm">{analytics.metrics.complianceIssues ?? 0} compliance issues detected</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -864,9 +862,9 @@ const DocumentTemplates = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {analytics.legalReviewRequests.map((request, index) => (
+                        {[analytics.metrics.legalReviewRequests ?? 0].map((request, index) => (
                           <div key={index} className="flex justify-between items-center p-3 bg-yellow-50 border border-yellow-200 rounded">
-                            <span className="text-sm">{request}</span>
+                            <span className="text-sm">{String(request)} legal review requests</span>
                             <Badge variant="outline" className="text-xs">Review Needed</Badge>
                           </div>
                         ))}

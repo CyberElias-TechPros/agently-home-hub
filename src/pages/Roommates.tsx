@@ -498,11 +498,11 @@ const CreateProfile = ({ onProfileCreated }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Minimum Budget</Label>
-              <Input type="number" value={formData.budget.min} onChange={(e) => setFormData({...formData, budget: {...formData.budget, min: e.target.value}})} />
+              <Input type="number" value={formData.budget.min} onChange={(e) => setFormData({...formData, budget: {...formData.budget, min: Number(e.target.value)}})} />
             </div>
             <div>
               <Label>Maximum Budget</Label>
-              <Input type="number" value={formData.budget.max} onChange={(e) => setFormData({...formData, budget: {...formData.budget, max: e.target.value}})} />
+              <Input type="number" value={formData.budget.max} onChange={(e) => setFormData({...formData, budget: {...formData.budget, max: Number(e.target.value)}})} />
             </div>
           </div>
 

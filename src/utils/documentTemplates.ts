@@ -123,33 +123,33 @@ export class DocumentTemplateManager {
     return `
 RESIDENTIAL LEASE AGREEMENT
 
-This Lease Agreement is made and entered into on ${startDate} by and between:
+This Lease Agreement is made and entered into on {{startDate}} by and between:
 
-LANDLORD: ${landlordName}
-TENANT: ${tenantName}
+LANDLORD: {{landlordName}}
+TENANT: {{tenantName}}
 
-PROPERTY: ${propertyAddress}
+PROPERTY: {{propertyAddress}}
 
-TERM: This lease shall begin on ${startDate} and end on ${endDate} (${leaseTerm} months).
+TERM: This lease shall begin on {{startDate}} and end on {{endDate}} ({{leaseTerm}} months).
 
-RENT: Tenant shall pay Landlord the sum of $${monthlyRent} per month, due on the 1st day of each month.
+RENT: Tenant shall pay Landlord the sum of \${{monthlyRent}} per month, due on the 1st day of each month.
 
-SECURITY DEPOSIT: Tenant has paid a security deposit of $${securityDeposit}, which shall be returned within 30 days of lease termination, less any deductions for damages.
+SECURITY DEPOSIT: Tenant has paid a security deposit of \${{securityDeposit}}, which shall be returned within 30 days of lease termination, less any deductions for damages.
 
-UTILITIES: ${utilitiesIncluded} utilities are included in the rent.
+UTILITIES: {{utilitiesIncluded}} utilities are included in the rent.
 
-PETS: ${petAllowed ? 'Pets are allowed with written permission.' : 'No pets are allowed.'}
+PETS: {{#petAllowed}}Pets are allowed with written permission.{{/petAllowed}}{{^petAllowed}}No pets are allowed.{{/petAllowed}}
 
-SMOKING: ${smokingAllowed ? 'Smoking is permitted in designated areas only.' : 'No smoking is permitted on the premises.'}
+SMOKING: {{#smokingAllowed}}Smoking is permitted in designated areas only.{{/smokingAllowed}}{{^smokingAllowed}}No smoking is permitted on the premises.{{/smokingAllowed}}
 
-LATE FEES: ${lateFee ? `A late fee of $${lateFee} will be charged for rent received after the 5th day of the month.` : ''}
+LATE FEES: {{#lateFee}}A late fee of \${{lateFee}} will be charged for rent received after the 5th day of the month.{{/lateFee}}
 
 This lease constitutes the entire agreement between the parties. No modifications shall be binding unless in writing and signed by both parties.
 
 _________________________        _________________________
 Landlord Signature          Tenant Signature
 
-Date: ${currentDate}        Date: ${currentDate}
+Date: {{currentDate}}        Date: {{currentDate}}
     `.trim();
   }
 
@@ -157,24 +157,24 @@ Date: ${currentDate}        Date: ${currentDate}
     return `
 ROOMMATE AGREEMENT
 
-This Roommate Agreement is made on \${startDate} between:
+This Roommate Agreement is made on {{startDate}} between:
 
-TENANT 1: \${tenant1Name}
-TENANT 2: \${tenant2Name}
+TENANT 1: {{tenant1Name}}
+TENANT 2: {{tenant2Name}}
 
-PROPERTY: \${propertyAddress}
+PROPERTY: {{propertyAddress}}
 
-TERM: This agreement shall remain in effect for \${leaseTerm} months beginning \${startDate}.
+TERM: This agreement shall remain in effect for {{leaseTerm}} months beginning {{startDate}}.
 
-RENT: Each tenant shall pay $\${monthlyRent} per month for their share of the rent.
+RENT: Each tenant shall pay \${{monthlyRent}} per month for their share of the rent.
 
-SECURITY DEPOSIT: Each tenant has paid a security deposit of $\${securityDeposit}.
+SECURITY DEPOSIT: Each tenant has paid a security deposit of \${{securityDeposit}}.
 
 HOUSE RULES:
-\${houseRules}
+{{houseRules}}
 
 CHORES SCHEDULE:
-\${choresSchedule}
+{{choresSchedule}}
 
 EXPENSES: All utilities and shared expenses shall be divided equally between roommates.
 
@@ -185,25 +185,35 @@ This agreement represents the entire understanding between the roommates.
 _________________________        _________________________
 Tenant 1 Signature          Tenant 2 Signature
 
-Date: \${currentDate}        Date: \${currentDate}
+Date: {{currentDate}}        Date: {{currentDate}}
     `.trim();
   }
 
   private getNoticeToVacateTemplate(): string {
-    return 'NOTICE TO VACATE\n\n' +
-           'Date: ${noticeDate}\n\n' +
-           '${landlordName}\n' +
-           '${propertyAddress}\n\n' +
-           'Dear ${landlordName},\n\n' +
-           'Please accept this letter as written notification that I, ${tenantName}, will be vacating the rental property at ${propertyAddress} on ${vacateDate}.\n\n' +
-           (reason ? `Reason for vacating: ${reason}\n\n` : '') +
-           'I will ensure the property is in the same condition as when I took possession, less normal wear and tear. Please let me know the procedure for the return of my security deposit of $' + securityDeposit + '.\n\n' +
-           'I can be reached at my current contact information for the final walk-through inspection.\n\n' +
-           'Thank you for your understanding.\n\n' +
-           'Sincerely,\n\n' +
-           '_________________________\n' +
-           '${tenantName}\n' +
-           'Date: ${currentDate}';
+    return `NOTICE TO VACATE
+
+Date: {{noticeDate}}
+
+{{landlordName}}
+{{propertyAddress}}
+
+Dear {{landlordName}},
+
+Please accept this letter as written notification that I, {{tenantName}}, will be vacating the rental property at {{propertyAddress}} on {{vacateDate}}.
+
+{{#reason}}Reason for vacating: {{reason}}{{/reason}}
+
+I will ensure the property is in the same condition as when I took possession, less normal wear and tear. Please let me know the procedure for the return of my security deposit of \${{securityDeposit}}.
+
+I can be reached at my current contact information for the final walk-through inspection.
+
+Thank you for your understanding.
+
+Sincerely,
+
+_________________________
+{{tenantName}}
+Date: {{currentDate}}`;
   }
 
   public getTemplates(category?: string): DocumentTemplate[] {

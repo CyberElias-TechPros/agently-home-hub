@@ -662,10 +662,10 @@ const Insurance = () => {
                           <div>
                             <h5 className="font-medium mb-2">Risk Factors</h5>
                             <div className="space-y-1">
-                              {rec.riskFactors.map((factor, index) => (
+                              {rec.riskFactors.map((factor: any, index) => (
                                 <div key={index} className="flex items-center space-x-2 text-sm">
                                   <AlertTriangle className="h-3 w-3 text-orange-500" />
-                                  <span>{factor.factor}: {factor.impact}</span>
+                                  <span>{typeof factor === 'string' ? factor : `${factor.factor}: ${factor.impact}`}</span>
                                 </div>
                               ))}
                             </div>

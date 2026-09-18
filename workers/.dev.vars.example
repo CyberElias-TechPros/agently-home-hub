@@ -1,0 +1,10 @@
+# Local secrets / env for `wrangler dev` and `npm run dev:node`.
+# Everything here is a placeholder — replace before production.
+
+JWT_SECRET=local-dev-jwt-secret-change-me
+JWT_REFRESH_SECRET=local-dev-refresh-secret-change-me
+ALLOWED_ORIGINS=*
+ENVIRONMENT=development
+
+# Optional PostgreSQL (only used by `npm run dev:node`, ignored by Workers/D1):
+# DATABASE_URL=postgres://postgres:postgres@localhost:5432/agently_home_hub

@@ -2115,6 +2115,7 @@ export const mockPlatformAnalytics: PlatformAnalytics = {
     conversionRate: 68.5
   },
   trends: {
+    conversionRate: 15.3,
     userGrowth: 15.3,
     propertyGrowth: 8.7,
     revenueGrowth: 22.4,

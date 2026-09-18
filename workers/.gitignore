@@ -1,0 +1,10 @@
+# wrangler local state
+.wrangler/
+
+# local artifacts
+dist-worker/
+node_modules/
+.dev.vars
+
+# typescript
+*.tsbuildinfo

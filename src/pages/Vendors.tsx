@@ -265,7 +265,7 @@ const Vendors = () => {
                         <CardContent className="p-6">
                           <div className="flex items-center space-x-4 mb-4">
                             <Avatar className="h-16 w-16">
-                              <AvatarImage src={vendor.profilePicture} />
+                              <AvatarImage src={(vendor as any).profilePicture} />
                               <AvatarFallback>{vendor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
@@ -381,7 +381,7 @@ const Vendors = () => {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Supplier:</span>
-                              <span className="ml-2 font-medium">{service.supplier}</span>
+                              <span className="ml-2 font-medium">{(service as any).supplier ?? '—'}</span>
                             </div>
                           </div>
 
@@ -437,7 +437,7 @@ const Vendors = () => {
                               <div className="flex-1">
                                 <div className="flex items-center space-x-4 mb-2">
                                   <Avatar className="h-12 w-12">
-                                    <AvatarImage src={vendor?.profilePicture} />
+                                    <AvatarImage src={(vendor as any)?.profilePicture} />
                                     <AvatarFallback>{vendor?.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                                   </Avatar>
                                   <div>
@@ -533,7 +533,7 @@ const Vendors = () => {
                           <CardContent className="p-6">
                             <div className="flex items-center space-x-3 mb-4">
                               <Avatar className="h-12 w-12">
-                                <AvatarImage src={vendor?.profilePicture} />
+                                <AvatarImage src={(vendor as any)?.profilePicture} />
                                 <AvatarFallback>{vendor?.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                               </Avatar>
                               <div>
@@ -596,7 +596,7 @@ const Vendors = () => {
                         <CardContent className="p-6">
                           <div className="flex items-center space-x-4 mb-4">
                             <Avatar className="h-16 w-16">
-                              <AvatarImage src={contractor.profilePicture} />
+                              <AvatarImage src={(contractor as any).profilePicture} />
                               <AvatarFallback>{contractor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                             </Avatar>
                             <div>
@@ -609,7 +609,7 @@ const Vendors = () => {
                             </div>
                           </div>
                           
-                          <p className="text-sm text-muted-foreground mb-4">{contractor.description}</p>
+                          <p className="text-sm text-muted-foreground mb-4">{(contractor as any).description ?? contractor.businessName}</p>
                           
                           <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
                             <div>

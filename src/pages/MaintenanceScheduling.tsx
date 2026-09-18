@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, Clock, Users, Wrench, FileText, AlertTriangle, CheckCircle, Plus, Edit, Eye, MapPin, Phone, Mail } from 'lucide-react';
+import { Calendar, Clock, Users, Wrench, FileText, AlertTriangle, CheckCircle, Plus, Edit, Eye, MapPin, Phone, Mail, BarChart3, DollarSign } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiService } from '@/lib/api';
@@ -287,7 +287,7 @@ const MaintenanceScheduling = () => {
                           </div>
 
                           <div className="flex space-x-2">
-                            {workOrder.status === 'pending' && (
+                            {workOrder.status === 'draft' && (
                               <>
                                 <Button variant="outline" size="sm" onClick={() => updateWorkOrderStatus(workOrder.id, 'scheduled')}>
                                   Schedule
@@ -670,7 +670,7 @@ const MaintenanceScheduling = () => {
                               <TableCell>{performance.jobsCompleted}</TableCell>
                               <TableCell>{performance.averageRating}</TableCell>
                               <TableCell>{performance.onTimePercentage}%</TableCell>
-                              <TableCell>${performance.totalEarnings.toLocaleString()}</TableCell>
+                              <TableCell>${(performance as any).totalEarnings?.toLocaleString?.() ?? '—'}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -726,7 +726,7 @@ const MaintenanceScheduling = () => {
                     <Card key={reminder.id}>
                       <CardContent className="p-6">
                         <div className="flex items-center space-x-3 mb-4">
-                          <div className={`w-3 h-3 rounded-full ${reminder.priority === 'urgent' ? 'bg-red-500' : reminder.priority === 'high' ? 'bg-orange-500' : 'bg-yellow-500'}`}></div>
+                          <div className={`w-3 h-3 rounded-full ${reminder.priority === 'high' ? 'bg-red-500' : reminder.priority === 'medium' ? 'bg-orange-500' : 'bg-yellow-500'}`}></div>
                           <div>
                             <h4 className="font-semibold">{reminder.type}</h4>
                             <p className="text-sm text-muted-foreground">{reminder.message}</p>
