@@ -35,9 +35,8 @@ id = "147e7ffb2f3240b0aeae613dd6b3821a"
 
 [vars]
 ENVIRONMENT = "production"
-# Secret placeholders (override with `.dev.vars` / `wrangler secret put`)
-JWT_SECRET = "replace-me-with-a-strong-secret"
-JWT_REFRESH_SECRET = "replace-me-with-a-refresh-secret"
+# Secrets (set via `wrangler secret put`, never committed):
+#   JWT_SECRET, JWT_REFRESH_SECRET
 
 observability = { enabled = true }
 
