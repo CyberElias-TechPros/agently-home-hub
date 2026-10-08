@@ -171,10 +171,11 @@ app.use('*', async (c, next) => {
 
 void readJson;
 
-// Compatibility export: a previous deployment of this worker bound a
-// ChatRoom Durable Object namespace, and Cloudflare requires every new
-// version to keep exporting the class so existing instances are not
+// Compatibility exports: a previous deployment of this worker bound Auction
+// and ChatRoom Durable Object namespaces, and Cloudflare requires every new
+// version to keep exporting those classes so existing instances are not
 // orphaned. Not used by the current code.
+export class Auction extends DurableObject {}
 export class ChatRoom extends DurableObject {}
 
 export default app;
