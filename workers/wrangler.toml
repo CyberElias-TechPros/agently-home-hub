@@ -23,7 +23,7 @@ database_id = "c3cc74e8-6133-46f6-8fe7-93036f444871"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
-id = "147e7ffb2f3240b0aeae613dd6b3821a"
+id = "566f0891c2804091842b91295833d165"
 
 # Optional bindings — only ACTIVE when their credentials are configured.
 # kv_namespaces = [
