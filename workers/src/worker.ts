@@ -10,6 +10,7 @@
  */
 
 import { Hono } from 'hono';
+import { DurableObject } from 'cloudflare:workers';
 import type { Env, Variables } from './types';
 import { ApiError, isApiError } from './errors';
 import { corsHeaders, readJson } from './http';
@@ -169,5 +170,11 @@ app.use('*', async (c, next) => {
 });
 
 void readJson;
+
+// Compatibility export: a previous deployment of this worker bound a
+// ChatRoom Durable Object namespace, and Cloudflare requires every new
+// version to keep exporting the class so existing instances are not
+// orphaned. Not used by the current code.
+export class ChatRoom extends DurableObject {}
 
 export default app;
