@@ -19,7 +19,7 @@ compatibility_date = "2025-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "agently-hub-db"
-database_id = "3d2dffbe-06b5-40c7-93c6-278f7541227a"
+database_id = "3ce941d4-ebea-42fb-b389-17724802f4d8"
 
 [[kv_namespaces]]
 binding = "CACHE_KV"
